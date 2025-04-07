@@ -77,7 +77,7 @@ class WidgetSetterProperty(property):
                 continue
 
             if isinstance(value, list) and check_lists(current_widget_value, value):
-                return
+                continue
 
             widget.value = value
 
@@ -86,8 +86,9 @@ class WidgetSetterProperty(property):
             self.binds[obj] = []
 
         self.binds[obj].append(widget)
+        widget.destroyed.connect(lambda: self.binds[obj].remove(widget))
         if self.fset:
-            widget.value_changed.connect(lambda v: self.fset(obj, v))
+            widget.value_changed.connect(lambda v: self.wrapped_setter(obj, v))
 
 
 class PropertyWidget(QWidget):
