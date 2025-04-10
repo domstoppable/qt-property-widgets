@@ -7,11 +7,18 @@ from PySide6.QtGui import QColor
 
 
 def property_params(**kwargs: typing.Any) -> typing.Callable:
-    def decorator(prop: property) -> property:
-        if prop.fget:
-            prop.fget.parameters = kwargs  # type: ignore
+    def decorator(getter: typing.Callable) -> typing.Callable:
+        if hasattr(getter, "parameters"):
+            params = {
+                **getter.parameters,
+                **kwargs
+            }
+        else:
+            params = kwargs.copy()
 
-        return prop
+        getter.parameters = params  # type: ignore
+
+        return getter
 
     return decorator
 
