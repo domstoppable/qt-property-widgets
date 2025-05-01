@@ -125,21 +125,22 @@ class PropertyWidget(QWidget):
     @staticmethod
     def from_property(
         prop: property | str, instance: T.Any = None
-    ) -> T.Union["PropertyWidget", None]:
+    ) -> T.Optional["PropertyWidget"]:
         if isinstance(prop, str):
             actual_prop = getattr(instance.__class__, prop)
         else:
             actual_prop = prop
 
-        if (
-            hasattr(actual_prop.fget, "parameters")
-            and "widget" in actual_prop.fget.parameters
-        ):
-            widget_class = actual_prop.fget.parameters["widget"]
-            if widget_class is None:
-                return None
+        widget_class = None
 
-        else:
+        if hasattr(actual_prop.fget, "parameters"):
+            params = actual_prop.fget.parameters
+            if "widget" in params:
+                widget_class = actual_prop.fget.parameters["widget"]
+                if widget_class is None:
+                    return None
+
+        if widget_class is None:
             hints = T.get_type_hints(actual_prop.fget)
             value_type = hints.get("return", str)
             widget_class = PropertyWidget.get_widget_class_from_value_class(value_type)
@@ -148,8 +149,14 @@ class PropertyWidget(QWidget):
         if instance is not None:
             w.value = actual_prop.fget(instance)
             if not isinstance(actual_prop, WidgetSetterProperty):
-                actual_prop = WidgetSetterProperty(actual_prop)
-                setattr(instance.__class__, actual_prop.fget.__name__, actual_prop)
+                existing_props = get_properties(instance.__class__)
+                for k, v in existing_props.items():
+                    if v == actual_prop:
+                        actual_prop = WidgetSetterProperty(actual_prop)
+                        setattr(instance.__class__, k, actual_prop)
+                        break
+                else:
+                    print("Could not find prop to replace with WidgetSetterProperty")
 
             actual_prop.bind(instance, w)
 
@@ -186,22 +193,27 @@ class PathWidget(PropertyWidget):
     @staticmethod
     def from_property_impl(prop: property) -> "PathWidget":
         widget = PathWidget()
+
+        if prop.fget and hasattr(prop.fget, "parameters"):
+            parameters = prop.fget.parameters
+            if "directory_mode" in parameters:
+                widget.directory_mode = parameters["directory_mode"]
+
+        widget.directory_mode = True
+
         return widget
 
     def __init__(self) -> None:
         super().__init__()
 
-        self.widget = QLineEdit()
-        self.browse_button = QToolButton()
-        self.browse_button.setText("🖿")
-        self.browse_button.clicked.connect(lambda _: self._on_browse_clicked())
+        self.widget = QPushButton()
+        self.widget.clicked.connect(lambda _: self._on_browse_clicked())
+        self._value: Path = Path(".")
 
         layout = self.layout()
         if layout:
             layout.addWidget(self.widget)
-            layout.addWidget(self.browse_button)
 
-        self.widget.editingFinished.connect(self._emit_value_changed)
         self.filter = ""
         self.directory_mode = False
 
@@ -230,14 +242,19 @@ class PathWidget(PropertyWidget):
 
     @property
     def value(self) -> Path:
-        return Path(self.widget.text())
+        return self._value
 
     @value.setter
     def value(self, value: str | Path) -> None:
+        self._value = Path(value)
+
         if value is None:
-            self.widget.setText("")
+            self.widget.setText("🖿")
         else:
-            self.widget.setText(str(value))
+            as_string = str(value)
+            if len(as_string) > 32:
+                as_string = as_string[:14] + "..." + as_string[-14:]
+            self.widget.setText(f"🖿 {as_string}")
 
 
 class EnumComboWidget(PropertyWidget):
@@ -354,6 +371,9 @@ class ColorWidget(PropertyWidget):
             self.value = color
 
     def _setup_button(self) -> None:
+        if self._color is None:
+            return
+
         self.button.setText(self._color.name())
 
         image = QImage(self.icon_canvas_image)
@@ -717,11 +737,14 @@ class PropertyForm(PropertyWidget):
         super().__init__()
 
         self.form_layout = QFormLayout()
-        self.form_layout.setSpacing(0)
+        self.form_layout.setVerticalSpacing(0)
+
+        self.actions_container = QVBoxLayout()
 
         layout = self.layout()
         if layout and hasattr(layout, "addLayout"):
             layout.addLayout(self.form_layout)
+            layout.addLayout(self.actions_container)
 
         self.value = obj
 
@@ -750,3 +773,32 @@ class PropertyForm(PropertyWidget):
                 prop_widget.value_changed.connect(
                     lambda v, n=property_name: self.property_changed.emit(n, v)
                 )
+
+        while self.actions_container.count():
+            item = self.actions_container.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        if hasattr(value, "_action_objects"):
+            for action_name, action_object in value._action_objects.items():
+                friendly_name = action_name.replace("_", " ").title()
+
+                action_button = QPushButton(friendly_name)
+                action_button.clicked.connect(
+                    lambda _, a_obj=action_object: a_obj()
+                )
+                action_form = QVBoxLayout()
+                action_form.addWidget(QLabel(f"<b>{friendly_name}</b>"))
+                action_prop_form = PropertyForm(action_object)
+                action_prop_form.form_layout.addRow("Execute", action_button)
+                action_prop_form.setContentsMargins(20, 0, 0, 0)
+
+                action_form.addWidget(action_prop_form)
+                self.actions_container.addLayout(action_form)
+
+            self.actions_container.addStretch(1)
+
+    @property
+    def has_widgets(self) -> bool:
+        return len(self.findChildren(QWidget)) > 0
