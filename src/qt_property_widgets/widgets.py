@@ -26,11 +26,13 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
     QPushButton,
+    QSlider,
     QVBoxLayout,
     QWidget,
 )
@@ -97,9 +99,8 @@ class PropertyWidget(QWidget):
     def __init__(self) -> None:
         super().__init__()
 
-        layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        self.setLayout(layout)
+        self.grid_layout = QGridLayout(self)
+        self.grid_layout.setContentsMargins(0, 0, 0, 0)
 
         self._prop_setter = None
 
@@ -209,9 +210,7 @@ class PathWidget(PropertyWidget):
         self.widget.clicked.connect(lambda _: self._on_browse_clicked())
         self._value: Path = Path(".")
 
-        layout = self.layout()
-        if layout:
-            layout.addWidget(self.widget)
+        self.grid_layout.addWidget(self.widget, 0, 0)
 
         self.filter = ""
         self.directory_mode = False
@@ -279,9 +278,7 @@ class EnumComboWidget(PropertyWidget):
             lambda: self.value_changed.emit(self.value)
         )
 
-        layout = self.layout()
-        if layout:
-            layout.addWidget(self.widget)
+        self.grid_layout.addWidget(self.widget, 0, 0)
 
     @property
     def value(self) -> Enum:
@@ -312,9 +309,7 @@ class FontComboWidget(PropertyWidget):
             lambda: self.value_changed.emit(self.value)
         )
 
-        layout = self.layout()
-        if layout:
-            layout.addWidget(self.widget)
+        self.grid_layout.addWidget(self.widget, 0, 0)
 
     @property
     def value(self) -> QFont:
@@ -342,9 +337,7 @@ class ColorWidget(PropertyWidget):
         super().__init__()
 
         self.button = QPushButton()
-        layout = self.layout()
-        if layout:
-            layout.addWidget(self.button)
+        self.grid_layout.addWidget(self.button, 0, 0)
 
         self._color: QColor = QColor(255, 255, 255)
 
@@ -408,9 +401,7 @@ class MultiLineTextWidget(PropertyWidget):
 
         self.widget = QPlainTextEdit()
         self.widget.textChanged.connect(lambda: self.value_changed.emit(self.value))
-        layout = self.layout()
-        if layout:
-            layout.addWidget(self.widget)
+        self.grid_layout.addWidget(self.widget, 0, 0)
 
     @property
     def value(self) -> str:
@@ -438,9 +429,7 @@ class TextWidget(PropertyWidget):
         self.widget = QLineEdit()
         self.widget.textChanged.connect(lambda: self.value_changed.emit(self.value))
 
-        layout = self.layout()
-        if layout:
-            layout.addWidget(self.widget)
+        self.grid_layout.addWidget(self.widget, 0, 0)
 
     @property
     def value(self) -> str:
@@ -461,28 +450,37 @@ class SpinboxWidget(PropertyWidget):
         if prop.fget and hasattr(prop.fget, "parameters"):
             parameters = prop.fget.parameters
             if "min" in parameters:
-                widget.spinbox.setMinimum(parameters["min"])
+                widget.min = parameters["min"]
 
             if "max" in parameters:
-                widget.spinbox.setMaximum(parameters["max"])
+                widget.max = parameters["max"]
 
             if "step" in parameters:
-                widget.spinbox.setSingleStep(parameters["step"])
+                widget.step = parameters["step"]
 
             if "decimals" in parameters:
-                widget.spinbox.setDecimals(parameters["decimals"])
+                widget.decimals = parameters["decimals"]
+
+            has_range = "max" in parameters and "min" in parameters
+            widget.slider.setVisible(parameters.get("show_slider", has_range))
+
+            widget.spinbox.setVisible(parameters.get("show_spinbox", True))
 
         return widget
 
     def __init__(self) -> None:
         super().__init__()
 
-        self.spinbox = QDoubleSpinBox()
-        self.spinbox.valueChanged.connect(lambda: self.value_changed.emit(self.value))
+        self.slider = QSlider(self)
+        self.slider.setOrientation(Qt.Orientation.Horizontal)
+        self.slider.valueChanged.connect(lambda: self.spinbox.setValue(self.slider.value() / 10**self.decimals))
+        self.slider.setVisible(False)
+        self.grid_layout.addWidget(self.slider, 0, 0)
 
-        layout = self.layout()
-        if layout:
-            layout.addWidget(self.spinbox)
+        self.spinbox = QDoubleSpinBox(self)
+        self.spinbox.valueChanged.connect(lambda: self.value_changed.emit(self.value))
+        self.spinbox.valueChanged.connect(lambda: self.slider.setValue(int(self.spinbox.value() * 10**self.decimals)))
+        self.grid_layout.addWidget(self.spinbox, 0, 1)
 
     @property
     def min(self) -> float:
@@ -491,6 +489,7 @@ class SpinboxWidget(PropertyWidget):
     @min.setter
     def min(self, value: float) -> None:
         self.spinbox.setMinimum(value)
+        self.slider.setMinimum(value * 10**self.decimals)
 
     @property
     def max(self) -> float:
@@ -499,6 +498,7 @@ class SpinboxWidget(PropertyWidget):
     @max.setter
     def max(self, value: float) -> None:
         self.spinbox.setMaximum(value)
+        self.slider.setMaximum(value * 10**self.decimals)
 
     @property
     def step(self) -> float:
@@ -507,6 +507,7 @@ class SpinboxWidget(PropertyWidget):
     @step.setter
     def step(self, value: float) -> None:
         self.spinbox.setSingleStep(value)
+        self.slider.setSingleStep(value * 10**self.decimals)
 
     @property
     def decimals(self) -> int:
@@ -515,6 +516,10 @@ class SpinboxWidget(PropertyWidget):
     @decimals.setter
     def decimals(self, value: int) -> None:
         self.spinbox.setDecimals(value)
+
+        self.slider.setMaximum(self.max * 10**value)
+        self.slider.setMinimum(self.min * 10**value)
+        self.slider.setSingleStep(self.step * 10**value)
 
     @property
     def value(self) -> float:
@@ -555,9 +560,7 @@ class BoolWidget(PropertyWidget):
             lambda _: self.value_changed.emit(self.value)
         )
 
-        layout = self.layout()
-        if layout:
-            layout.addWidget(self.checkbox)
+        self.grid_layout.addWidget(self.checkbox, 0, 0)
 
     @property
     def value(self) -> bool:
@@ -578,7 +581,7 @@ class ValueListItemWidget(QWidget):
         self.delete_button.setFixedSize(20, 20)
 
         if isinstance(item_widget, PropertyForm):
-            self.setLayout(QVBoxLayout())
+            layout = QVBoxLayout(self)
             title_bar = QWidget()
             title_bar.setStyleSheet("font-weight: bold")
 
@@ -588,18 +591,15 @@ class ValueListItemWidget(QWidget):
             tbar_layout.addWidget(self.delete_button)
             title_bar.setLayout(tbar_layout)
 
-            layout = self.layout()
-            if layout:
-                layout.addWidget(title_bar)
-                layout.addWidget(item_widget)
-                layout.setContentsMargins(0, 5, 0, 5)
+            layout.addWidget(title_bar)
+            layout.addWidget(item_widget)
+            layout.setContentsMargins(0, 5, 0, 5)
         else:
-            layout = QHBoxLayout()
+            layout = QHBoxLayout(self)
             if item_widget is not None:
                 layout.addWidget(item_widget, stretch=1)
 
             layout.addWidget(self.delete_button)
-            self.setLayout(layout)
 
 
 class ValueListWidget(PropertyWidget):
@@ -623,10 +623,8 @@ class ValueListWidget(PropertyWidget):
         add_button = QPushButton(self.prop_parameters.get("add_button_text", "Add value"), self)
         add_button.clicked.connect(self.on_add_button_clicked)
 
-        layout = self.layout()
-        if layout:
-            layout.addWidget(self.container_widget)
-            layout.addWidget(add_button)
+        self.grid_layout.addWidget(self.container_widget, 0, 0)
+        self.grid_layout.addWidget(add_button, 1, 0)
 
         self.item_widgets: list[ValueListItemWidget] = []
 
@@ -744,10 +742,8 @@ class PropertyForm(PropertyWidget):
 
         self.actions_container = QVBoxLayout()
 
-        layout = self.layout()
-        if layout and hasattr(layout, "addLayout"):
-            layout.addLayout(self.form_layout)
-            layout.addLayout(self.actions_container)
+        self.grid_layout.addLayout(self.form_layout, 0, 0)
+        self.grid_layout.addLayout(self.actions_container, 1, 0)
 
         self.value = obj
 
