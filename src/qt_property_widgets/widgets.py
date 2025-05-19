@@ -31,7 +31,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPlainTextEdit,
     QPushButton,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -230,7 +229,7 @@ class PathWidget(PropertyWidget):
         if value == "":
             return
 
-        self.widget.setText(value)
+        self._update_text()
         self._emit_value_changed()
 
     def _emit_value_changed(self) -> None:
@@ -240,6 +239,16 @@ class PathWidget(PropertyWidget):
         else:
             self.value_changed.emit(Path(path_str))
 
+    def _update_text(self):
+        if self._value is None:
+            self.widget.setText("🖿")
+        else:
+            as_string = str(self._value.resolve().stem)
+            if len(as_string) > 32:
+                as_string = as_string[:14] + "..." + as_string[-14:]
+
+            self.widget.setText(f"🖿 {as_string}")
+
     @property
     def value(self) -> Path:
         return self._value
@@ -247,14 +256,7 @@ class PathWidget(PropertyWidget):
     @value.setter
     def value(self, value: str | Path) -> None:
         self._value = Path(value)
-
-        if value is None:
-            self.widget.setText("🖿")
-        else:
-            as_string = str(value)
-            if len(as_string) > 32:
-                as_string = as_string[:14] + "..." + as_string[-14:]
-            self.widget.setText(f"🖿 {as_string}")
+        self._update_text()
 
 
 class EnumComboWidget(PropertyWidget):
