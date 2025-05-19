@@ -1,4 +1,3 @@
-import functools
 import inspect
 import json
 import typing as T
@@ -170,7 +169,7 @@ class PersistentPropertiesMixin:
     @classmethod
     def from_dict(
         cls: type["PersistentPropertiesMixin"], state: dict[str, T.Any]
-    ) -> "PersistentPropertiesMixin":
+    ) -> T.Any:
         if "__class__" in state and hasattr(cls, "_known_types"):
             type_name = state["__class__"]
             for known_type in cls._known_types:
