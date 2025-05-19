@@ -592,6 +592,7 @@ class ValueListItemWidget(QWidget):
             if layout:
                 layout.addWidget(title_bar)
                 layout.addWidget(item_widget)
+                layout.setContentsMargins(0, 5, 0, 5)
         else:
             layout = QHBoxLayout()
             if item_widget is not None:
@@ -619,7 +620,7 @@ class ValueListWidget(PropertyWidget):
         self.container_layout.setSpacing(5)
 
         # Button for adding a new item.
-        add_button = QPushButton("Add value", self)
+        add_button = QPushButton(self.prop_parameters.get("add_button_text", "Add value"), self)
         add_button.clicked.connect(self.on_add_button_clicked)
 
         layout = self.layout()
