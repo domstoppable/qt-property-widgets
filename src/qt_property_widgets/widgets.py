@@ -218,18 +218,17 @@ class PathWidget(PropertyWidget):
     def _on_browse_clicked(self) -> None:
         if self.directory_mode:
             value = QFileDialog.getExistingDirectory(
-                self, "Open Folder", self.widget.text()
+                self, "Open Folder", str(self._value)
             )
         else:
             value = QFileDialog.getOpenFileName(
-                self, "Open File", self.widget.text(), self.filter
+                self, "Open File", str(self._value), self.filter
             )[0]
 
         if value == "":
             return
 
-        self._update_text()
-        self._emit_value_changed()
+        self.value = Path(value)
 
     def _emit_value_changed(self) -> None:
         path_str = self.widget.text()
