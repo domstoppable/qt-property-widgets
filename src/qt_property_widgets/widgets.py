@@ -3,6 +3,7 @@ from enum import Enum
 from pathlib import Path
 
 from PySide6.QtCore import (
+    QSize,
     Qt,
     Signal,
     SignalInstance,
@@ -15,10 +16,10 @@ from PySide6.QtGui import (
     QIcon,
     QImage,
     QPainter,
+    QPainterPath,
     QPixmap,
 )
 from PySide6.QtWidgets import (
-    QCheckBox,
     QColorDialog,
     QComboBox,
     QDialog,
@@ -32,7 +33,9 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPlainTextEdit,
     QPushButton,
+    QSizePolicy,
     QSlider,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -335,26 +338,19 @@ class ColorWidget(PropertyWidget):
     def __init__(self) -> None:
         super().__init__()
 
-        self.button = QPushButton()
-        self.grid_layout.addWidget(self.button, 0, 0)
+        self.spacer = QWidget()
+        self.spacer.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+        self.button = QToolButton()
+        self.button.setStyleSheet("border: none;")
+        self.button.setIconSize(QSize(20, 20))
+        self.grid_layout.addWidget(self.spacer, 0, 0)
+        self.grid_layout.addWidget(self.button, 0, 1)
 
         self._color: QColor = QColor(255, 255, 255)
 
         self.button.clicked.connect(self._on_clicked)
-        self.setStyleSheet("QPushButton { font-family: monospace; }")
-
-        icon_size = 64
-        self.icon_canvas_image = QImage(
-            icon_size, icon_size, QImage.Format.Format_ARGB32
-        )
-        painter = QPainter(self.icon_canvas_image)
-        painter.setPen(Qt.PenStyle.NoPen)
-        for y in range(0, icon_size, 16):
-            for x in range(0, icon_size, 16):
-                if (x // 16 + y // 16) % 2 == 0:
-                    painter.fillRect(x, y, 16, 16, QColorConstants.LightGray)
-                else:
-                    painter.fillRect(x, y, 16, 16, QColorConstants.DarkGray)
 
         self._setup_button()
 
@@ -370,12 +366,26 @@ class ColorWidget(PropertyWidget):
 
         self.button.setText(self._color.name())
 
-        image = QImage(self.icon_canvas_image)
-        painter = QPainter(image)
-        painter.fillRect(0, 0, image.width(), image.height(), self._color)
+        icon_size = 64
+        self.icon_canvas_image = QImage(
+            icon_size, icon_size, QImage.Format.Format_ARGB32
+        )
+        painter = QPainter(self.icon_canvas_image)
+        path = QPainterPath()
+        path.addEllipse(0, 0, icon_size, icon_size)
+        painter.setClipPath(path)
+        for y in range(0, icon_size, 16):
+            for x in range(0, icon_size, 16):
+                if (x // 16 + y // 16) % 2 == 0:
+                    painter.fillRect(x, y, 16, 16, QColorConstants.LightGray)
+                else:
+                    painter.fillRect(x, y, 16, 16, QColorConstants.DarkGray)
+
+        painter.setBrush(self._color)
+        painter.drawEllipse(0, 0, icon_size, icon_size)
         painter.end()
 
-        self.button.setIcon(QIcon(QPixmap.fromImage(image)))
+        self.button.setIcon(QIcon(QPixmap.fromImage(self.icon_canvas_image)))
 
     @property
     def value(self) -> QColor:
@@ -553,13 +563,29 @@ class BoolWidget(PropertyWidget):
     def __init__(self) -> None:
         super().__init__()
 
-        self.checkbox = QCheckBox()
+        self.checkbox = QToolButton()
+        self.checkbox.setCheckable(True)
         self.checkbox.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        self.checkbox.stateChanged.connect(
-            lambda _: self.value_changed.emit(self.value)
+        self.checkbox.clicked.connect(self.on_clicked)
+        self.checkbox.setStyleSheet("""
+            font-family: monospace;
+            padding: -1 -2 0 -2;
+        """)
+
+        self.spacer = QWidget()
+        self.spacer.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
 
-        self.grid_layout.addWidget(self.checkbox, 0, 0)
+        self.grid_layout.addWidget(self.spacer, 0, 0)
+        self.grid_layout.addWidget(self.checkbox, 0, 1)
+
+    def on_clicked(self):
+        self.value_changed.emit(self.value)
+        self.update_indicator()
+
+    def update_indicator(self):
+        self.checkbox.setText("✔" if self.value else " ")
 
     @property
     def value(self) -> bool:
@@ -568,6 +594,7 @@ class BoolWidget(PropertyWidget):
     @value.setter
     def value(self, value: bool) -> None:
         self.checkbox.setChecked(value)
+        self.update_indicator()
         self.value_changed.emit(value)
 
 
@@ -737,7 +764,7 @@ class PropertyForm(PropertyWidget):
         super().__init__()
 
         self.form_layout = QFormLayout()
-        self.form_layout.setVerticalSpacing(0)
+        self.form_layout.setVerticalSpacing(4)
 
         self.actions_container = QVBoxLayout()
 
