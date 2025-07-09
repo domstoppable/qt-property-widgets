@@ -574,7 +574,7 @@ class BoolWidget(PropertyWidget):
 
         self.spacer = QWidget()
         self.spacer.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
 
         self.grid_layout.addWidget(self.spacer, 0, 0)
