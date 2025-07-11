@@ -158,7 +158,13 @@ class PersistentPropertiesMixin:
 
         for prop_name, prop in properties.items():
             if prop.fget:
-                state[prop_name] = prop.fget(self)
+                encode_ok = True
+                has_params = hasattr(prop.fget, 'parameters')
+                if has_params:
+                    encode_ok = not prop.fget.parameters.get('dont_encode', False)
+
+                if encode_ok:
+                    state[prop_name] = prop.fget(self)
 
         if hasattr(self, "_action_objects"):
             for action_name, action_object in self._action_objects.items():
