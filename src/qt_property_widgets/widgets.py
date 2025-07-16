@@ -12,7 +12,6 @@ from PySide6.QtGui import (
     QColor,
     QColorConstants,
     QFont,
-    QFontDatabase,
     QIcon,
     QImage,
     QPainter,
@@ -26,6 +25,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QFileDialog,
+    QFontDialog,
     QFormLayout,
     QGridLayout,
     QHBoxLayout,
@@ -292,40 +292,41 @@ class EnumComboWidget(PropertyWidget):
         self.widget.setCurrentIndex(self.widget.findData(value))
 
 
-class FontComboWidget(PropertyWidget):
+class FontWidget(PropertyWidget):
     value_changed = Signal(QFont)
 
     @staticmethod
-    def from_property_impl(prop: property) -> "FontComboWidget":
-        return FontComboWidget()
+    def from_property_impl(prop: property) -> "FontWidget":
+        return FontWidget()
 
     def __init__(self) -> None:
         super().__init__()
 
-        self.widget = QComboBox()
-
-        for family in QFontDatabase.families():
-            self.widget.addItem(family, family)
-
-        self.widget.currentIndexChanged.connect(
-            lambda: self.value_changed.emit(self.value)
-        )
+        self._font = QFont()
+        self.widget = QPushButton()
+        self.widget.clicked.connect(lambda: self._on_clicked())
 
         self.grid_layout.addWidget(self.widget, 0, 0)
+        self._update_text()
+
+    def _on_clicked(self) -> None:
+        ok, font = QFontDialog.getFont(self._font, self)
+        if ok:
+            self.value = font
+            self.value_changed.emit(self.value)
+
+    def _update_text(self):
+        self.widget.setText(f"{self._font.family()} {self._font.pointSize()}")
+        self.widget.setFont(self._font)
 
     @property
     def value(self) -> QFont:
-        font: QFont = self.widget.currentData()
-        return font
+        return self._font
 
     @value.setter
     def value(self, value: QFont) -> None:
-        idx = self.widget.findData(value)
-        if idx == -1:
-            self.widget.addItem(f"{value} [NOT FOUND]", value)
-            idx = self.widget.count() - 1
-
-        self.widget.setCurrentIndex(idx)
+        self._font = value
+        self._update_text()
 
 
 class ColorWidget(PropertyWidget):

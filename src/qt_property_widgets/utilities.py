@@ -5,7 +5,7 @@ from enum import Enum
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, SignalInstance
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QFont
 
 
 def property_params(**kwargs: T.Any) -> T.Callable:
@@ -135,6 +135,15 @@ class PersistentPropertiesMixin:
             elif issubclass(target_class, QColor):
                 value = QColor(*value)
 
+            elif issubclass(target_class, QFont):
+                font = QFont(value["family"], value["pointSize"])
+                font.setBold(value["bold"])
+                font.setItalic(value["italic"])
+                font.setUnderline(value["underline"])
+                font.setStrikeOut(value["strikeOut"])
+
+                value = font
+
         elif target_class is list:
             item_type = T.get_args(target_type)[0]
             if hasattr(item_type, "from_dict"):
@@ -203,10 +212,20 @@ class ComplexEncoder(json.JSONEncoder):
             return obj.value
 
         elif isinstance(obj, QColor):
-            return (obj.red(), obj.green(), obj.blue())
+            return (obj.red(), obj.green(), obj.blue(), obj.alpha())
 
         elif isinstance(obj, PersistentPropertiesMixin):
             return obj.to_dict()
+
+        elif isinstance(obj, QFont):
+            return {
+                "family": obj.family(),
+                "pointSize": obj.pointSize(),
+                "bold": obj.bold(),
+                "italic": obj.italic(),
+                "underline": obj.underline(),
+                "strikeOut": obj.strikeOut(),
+            }
 
         return json.JSONEncoder.default(self, obj)
 
