@@ -40,7 +40,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .utilities import get_properties
+from .utilities import ActionObject, create_action_object, get_properties
 
 
 class WidgetSetterProperty(property):
@@ -784,10 +784,7 @@ class PropertyForm(PropertyWidget):
         self.value_changed.emit(value)
 
         while self.form_layout.count():
-            item = self.form_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
+            self.form_layout.removeRow(0)
 
         props = get_properties(value.__class__)
         for property_name, prop in props.items():
@@ -808,22 +805,28 @@ class PropertyForm(PropertyWidget):
 
         if hasattr(value, "_action_objects"):
             for action_name, action_object in value._action_objects.items():
-                friendly_name = action_name.replace("_", " ").title()
-
-                action_button = QPushButton(friendly_name)
-                action_button.clicked.connect(
-                    lambda _, a_obj=action_object: a_obj()
-                )
-                action_form = QVBoxLayout()
-                action_form.addWidget(QLabel(f"<b>{friendly_name}</b>"))
-                action_prop_form = PropertyForm(action_object)
-                action_prop_form.form_layout.addRow("Execute", action_button)
-                action_prop_form.setContentsMargins(20, 0, 0, 0)
-
-                action_form.addWidget(action_prop_form)
-                self.actions_container.addLayout(action_form)
+                self.add_action(action_name, action_object)
 
             self.actions_container.addStretch(1)
+
+    def add_action(self, action_name: str, action_object: object | T.Callable) -> None:
+        friendly_name = action_name.replace("_", " ").title()
+
+        if not isinstance(action_object, ActionObject):
+            action_object = create_action_object(action_object, self.value)
+
+        action_button = QPushButton(friendly_name)
+        action_button.clicked.connect(
+            lambda _, a_obj=action_object: a_obj()
+        )
+        action_form = QVBoxLayout()
+        action_form.addWidget(QLabel(f"<b>{friendly_name}</b>"))
+        action_prop_form = PropertyForm(action_object)
+        action_prop_form.form_layout.addRow("", action_button)
+        action_prop_form.setContentsMargins(20, 0, 0, 0)
+
+        action_form.addWidget(action_prop_form)
+        self.actions_container.addLayout(action_form)
 
     @property
     def has_widgets(self) -> bool:
