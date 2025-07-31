@@ -130,7 +130,8 @@ class PersistentPropertiesMixin:
                     value = Path(value)
 
             elif issubclass(target_class, Enum):
-                value = target_class(value)
+                if value is not None:
+                    value = target_class(value)
 
             elif issubclass(target_class, QColor):
                 value = QColor(*value)
