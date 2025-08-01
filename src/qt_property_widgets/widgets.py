@@ -1,4 +1,6 @@
+import inspect
 import typing as T
+from collections.abc import Mapping
 from enum import Enum
 from pathlib import Path
 
@@ -172,10 +174,9 @@ class PropertyWidget(QWidget):
 
     @staticmethod
     def get_widget_class_from_value_class(cls: type) -> type["PropertyWidget"]:
-        value_class = T.get_origin(cls) or cls
         candidates = []
         for kls, widget_cls in PropertyWidget.known_type_widgets.items():
-            if issubclass(value_class, kls):
+            if is_subtype(cls, kls):
                 candidates.append(widget_cls)
 
         if not candidates:
@@ -599,6 +600,46 @@ class BoolWidget(PropertyWidget):
         self.value_changed.emit(value)
 
 
+class FlagsWidget(PropertyWidget):
+    value_changed = Signal(object)
+
+    @staticmethod
+    def from_property_impl(prop: property) -> "FlagsWidget":
+        return FlagsWidget()
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._flags = {}
+        self.grid_layout.setContentsMargins(5, 3, 0, 0)
+
+    @property
+    def value(self) -> T.Mapping[str, bool]:
+        return self._flags
+
+    @value.setter
+    def value(self, value: T.Mapping[str, bool]) -> None:
+        self._flags = value
+
+        # remove widgets
+        while self.grid_layout.count() > 0:
+            self.grid_layout.takeAt(0).widget().setParent(None)
+
+        for idx, (k, v) in enumerate(self._flags.items()):
+            w = BoolWidget()
+            w.value = v
+            w.value_changed.connect(lambda new_v, k=k: self._on_value_changed(k, new_v))
+            self.grid_layout.addWidget(QLabel(k), idx, 0)
+            self.grid_layout.addWidget(w, idx, 1)
+
+        self.value_changed.emit(value)
+
+
+    def _on_value_changed(self, key: str, value: bool) -> None:
+        tmp_flags = self._flags.copy()
+        tmp_flags[key] = value
+        self.value = tmp_flags
+
+
 class ValueListItemWidget(QWidget):
     def __init__(self, item_widget: PropertyWidget | None) -> None:
         super().__init__()
@@ -831,3 +872,55 @@ class PropertyForm(PropertyWidget):
     @property
     def has_widgets(self) -> bool:
         return len(self.findChildren(QWidget)) > 0
+
+
+def is_subtype(child_type, parent_type) -> bool:
+    # Exact match
+    if child_type == parent_type:
+        return True
+
+    # Plain‐class check (int, str, custom classes without subscripting)
+    if inspect.isclass(child_type) and inspect.isclass(parent_type):
+        try:
+            if issubclass(child_type, parent_type):
+                return True
+        except TypeError:
+            pass
+
+    # Peel off origins & args for parameterized generics
+    c_origin = T.get_origin(child_type)
+    p_origin = T.get_origin(parent_type)
+    c_args   = T.get_args(child_type)
+    p_args   = T.get_args(parent_type)
+
+    # If both are parameterized and same arity
+    if c_origin and p_origin and len(c_args) == len(p_args):
+        # Standard: same origin (or subclass) + covariant args
+        same_origin = (
+            c_origin == p_origin
+            or (inspect.isclass(c_origin)
+               and inspect.isclass(p_origin)
+               and issubclass(c_origin, p_origin))
+        )
+        if same_origin and all(is_subtype(ca, pa) for ca, pa in zip(c_args, p_args)):
+            return True
+
+        # SPECIAL RULE: any Mapping[K,V] → any other Mapping[K,V]
+        if (
+            inspect.isclass(c_origin)
+            and issubclass(c_origin, Mapping)
+            and inspect.isclass(p_origin)
+            and issubclass(p_origin, Mapping)
+            and all(is_subtype(ca, pa) for ca, pa in zip(c_args, p_args))
+        ):
+            return True
+
+    # Raw‐generic parent: allow GenericAlias → its origin
+    #    e.g. child_type = list[X], parent_type = list
+    if c_origin and inspect.isclass(parent_type):
+        if c_origin == parent_type or (
+            inspect.isclass(c_origin) and issubclass(c_origin, parent_type)
+        ):
+            return True
+
+    return False
