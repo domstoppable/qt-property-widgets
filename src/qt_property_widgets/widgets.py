@@ -233,13 +233,10 @@ class PathWidget(PropertyWidget):
             return
 
         self.value = Path(value)
+        self._emit_value_changed()
 
     def _emit_value_changed(self) -> None:
-        path_str = self.widget.text()
-        if path_str == "":
-            self.value_changed.emit(None)
-        else:
-            self.value_changed.emit(Path(path_str))
+        self.value_changed.emit(self._value)
 
     def _update_text(self):
         if self._value is None:
