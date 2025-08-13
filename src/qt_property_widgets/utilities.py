@@ -251,7 +251,12 @@ class ActionObject(PersistentPropertiesMixin, QObject):
         self.args["self"] = instance
 
     def __call__(self) -> None:
-        self.func(**self.args)
+        if hasattr(self.func, "__self__") and self.func.__self__ is not None:
+            args = {k: v for k, v in self.args.items() if k != "self"}
+        else:
+            args = self.args
+
+        return self.func(**args)
 
 
 def create_action_object(func: T.Callable, instance: T.Any) -> ActionObject:
