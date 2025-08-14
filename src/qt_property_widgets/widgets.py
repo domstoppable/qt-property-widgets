@@ -254,7 +254,7 @@ class PathWidget(PropertyWidget):
 
     @value.setter
     def value(self, value: str | Path) -> None:
-        self._value = Path(value)
+        self._value = Path(value or ".")
         self._update_text()
 
 
