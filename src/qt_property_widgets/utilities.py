@@ -145,6 +145,9 @@ class PersistentPropertiesMixin:
 
                 value = font
 
+            elif isinstance(value, dict) and hasattr(target_class, "from_dict"):
+                value = target_class.from_dict(value)
+
         elif target_class is list:
             item_type = T.get_args(target_type)[0]
             if hasattr(item_type, "from_dict"):
@@ -156,6 +159,12 @@ class PersistentPropertiesMixin:
                 converter(item) if not isinstance(item, item_type) else item
                 for item in value
             ]
+
+        elif target_class is dict:
+            type_args = T.get_args(target_type)
+            if len(type_args) > 1:
+                sub_target_type = type_args[1]
+                value = {k:PersistentPropertiesMixin.type_convert(v, sub_target_type) for k, v in value.items()}
 
         return value
 
