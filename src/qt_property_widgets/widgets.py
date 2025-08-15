@@ -451,6 +451,10 @@ class TextWidget(PropertyWidget):
 class SpinboxWidget(PropertyWidget):
     value_changed = Signal(float)
 
+    @staticmethod
+    def from_type(cls: type) -> "SpinboxWidget":
+        return SpinboxWidget()
+
     @classmethod
     def from_property_impl(cls: type, prop: property) -> "SpinboxWidget":
         widget: SpinboxWidget = cls()
