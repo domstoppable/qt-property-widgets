@@ -662,13 +662,14 @@ class ValueListItemWidget(QWidget):
 
             layout.addWidget(title_bar)
             layout.addWidget(item_widget)
-            layout.setContentsMargins(0, 5, 0, 5)
         else:
             layout = QHBoxLayout(self)
             if item_widget is not None:
                 layout.addWidget(item_widget, stretch=1)
 
             layout.addWidget(self.delete_button)
+
+        layout.setContentsMargins(0, 0, 0, 0)
 
 
 class ValueListWidget(PropertyWidget):
@@ -686,7 +687,6 @@ class ValueListWidget(PropertyWidget):
         self.container_widget = QWidget(self)
         self.container_layout = QVBoxLayout(self.container_widget)
         self.container_layout.setContentsMargins(0, 0, 0, 0)
-        self.container_layout.setSpacing(5)
 
         # Button for adding a new item.
         add_button = QPushButton(self.prop_parameters.get("add_button_text", "Add value"), self)
