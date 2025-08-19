@@ -625,9 +625,11 @@ class FlagsWidget(PropertyWidget):
         while self.grid_layout.count() > 0:
             self.grid_layout.takeAt(0).widget().setParent(None)
 
-        for idx, (k, v) in enumerate(self._flags.items()):
+        sorted_keys = sorted(self._flags.keys())
+
+        for idx, k in enumerate(sorted_keys):
             w = BoolWidget()
-            w.value = v
+            w.value = self._flags[k]
             w.value_changed.connect(lambda new_v, k=k: self._on_value_changed(k, new_v))
             self.grid_layout.addWidget(QLabel(k), idx, 0)
             self.grid_layout.addWidget(w, idx, 1)
