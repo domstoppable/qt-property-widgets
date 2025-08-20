@@ -129,10 +129,6 @@ class PersistentPropertiesMixin:
                 if value is not None:
                     value = Path(value)
 
-            elif issubclass(target_class, Enum):
-                if value is not None:
-                    value = target_class(value)
-
             elif issubclass(target_class, QColor):
                 value = QColor(*value)
 
@@ -147,6 +143,9 @@ class PersistentPropertiesMixin:
 
             elif isinstance(value, dict) and hasattr(target_class, "from_dict"):
                 value = target_class.from_dict(value)
+
+            elif value is not None:
+                value = target_class(value)
 
         elif target_class is list:
             item_type = T.get_args(target_type)[0]
@@ -252,12 +251,14 @@ class ActionObject(PersistentPropertiesMixin, QObject):
 
         signature = inspect.signature(func)
         for param_name, param in signature.parameters.items():
-            if param.default is inspect.Parameter.empty:
+            if param_name == "self":
+                self.args[param_name] = instance
+
+            elif param.default is inspect.Parameter.empty:
                 self.args[param_name] = None
+
             else:
                 self.args[param_name] = param.default
-
-        self.args["self"] = instance
 
     def __call__(self) -> None:
         if hasattr(self.func, "__self__") and self.func.__self__ is not None:
