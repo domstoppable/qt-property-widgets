@@ -543,6 +543,8 @@ class SpinboxWidget(PropertyWidget):
 
 
 class IntSpinboxWidget(SpinboxWidget):
+    value_changed = Signal(int)
+
     def __init__(self) -> None:
         super().__init__()
         self.spinbox.setDecimals(0)
