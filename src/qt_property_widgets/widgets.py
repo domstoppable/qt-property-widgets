@@ -98,7 +98,8 @@ class WidgetSetterProperty(property):
 
 
 class PropertyWidget(QWidget):
-    known_type_widgets: T.ClassVar[dict[type, type]] = {}
+    deferred_type_widgets: T.ClassVar[list[type]] = []
+    _known_type_widgets: T.ClassVar[dict[type, type]] = {}
     value_changed = Signal(object)
 
     def __init__(self) -> None:
@@ -112,10 +113,7 @@ class PropertyWidget(QWidget):
     def __init_subclass__(cls: type, **kwargs: T.Any) -> None:
         super().__init_subclass__(**kwargs)  # type: ignore
 
-        if hasattr(cls, "value") and cls.value.fget:
-            hints = T.get_type_hints(cls.value.fget)
-            if "return" in hints:
-                PropertyWidget.known_type_widgets[hints["return"]] = cls
+        PropertyWidget.deferred_type_widgets.append(cls)
 
     @property
     def value(self) -> T.Any:
@@ -175,7 +173,7 @@ class PropertyWidget(QWidget):
     @staticmethod
     def get_widget_class_from_value_class(cls: type) -> type["PropertyWidget"]:
         candidates = []
-        for kls, widget_cls in PropertyWidget.known_type_widgets.items():
+        for kls, widget_cls in PropertyWidget.get_known_type_widgets().items():
             if is_subtype(cls, kls):
                 candidates.append(widget_cls)
 
@@ -190,6 +188,17 @@ class PropertyWidget(QWidget):
     def from_property_impl(prop: property) -> "PropertyWidget":
         raise NotImplementedError("Subclasses must implement 'from_property_impl'.")
 
+    @staticmethod
+    def get_known_type_widgets() -> dict[type, type]:
+        for cls in PropertyWidget.deferred_type_widgets:
+            if hasattr(cls, "value") and cls.value.fget:
+                hints = T.get_type_hints(cls.value.fget)
+                if "return" in hints:
+                    PropertyWidget._known_type_widgets[hints["return"]] = cls
+
+        PropertyWidget.deferred_type_widgets.clear()
+
+        return PropertyWidget._known_type_widgets
 
 class PathWidget(PropertyWidget):
     value_changed = Signal(Path)
@@ -809,18 +818,21 @@ class PropertyForm(PropertyWidget):
     def from_type(cls: type) -> "PropertyForm":
         return PropertyForm(cls())
 
-    def __init__(self, obj: object) -> None:
+    def __init__(self, obj: object | None) -> None:
         super().__init__()
 
+        self._setup_grid()
+        self.value = obj
+
+    def _setup_grid(self) -> None:
         self.form_layout = QFormLayout()
         self.form_layout.setVerticalSpacing(4)
 
         self.actions_container = QVBoxLayout()
 
-        self.grid_layout.addLayout(self.form_layout, 0, 0)
-        self.grid_layout.addLayout(self.actions_container, 1, 0)
-
-        self.value = obj
+        gl = self.grid_layout
+        gl.addLayout(self.form_layout, gl.rowCount(), 0)
+        gl.addLayout(self.actions_container, gl.rowCount(), 0)
 
     @property
     def value(self) -> object:
@@ -834,9 +846,12 @@ class PropertyForm(PropertyWidget):
         while self.form_layout.count():
             self.form_layout.removeRow(0)
 
-        props = get_properties(value.__class__)
+        self._setup_form()
+
+    def _setup_form(self) -> None:
+        props = get_properties(self.value.__class__)
         for property_name, prop in props.items():
-            prop_widget = PropertyWidget.from_property(prop, value)
+            prop_widget = PropertyWidget.from_property(prop, self.value)
 
             if prop_widget is not None:
                 label = property_name.replace("_", " ").capitalize()
@@ -851,30 +866,19 @@ class PropertyForm(PropertyWidget):
             if widget:
                 widget.deleteLater()
 
-        if hasattr(value, "_action_objects"):
-            for action_name, action_object in value._action_objects.items():
+        if hasattr(self.value, "_action_objects"):
+            for action_name, action_object in self.value._action_objects.items():
                 self.add_action(action_name, action_object)
 
             self.actions_container.addStretch(1)
 
     def add_action(self, action_name: str, action_object: object | T.Callable) -> None:
-        friendly_name = action_name.replace("_", " ").title()
-
         if not isinstance(action_object, ActionObject):
             action_object = create_action_object(action_object, self.value)
 
-        action_button = QPushButton(friendly_name)
-        action_button.clicked.connect(
-            lambda _, a_obj=action_object: a_obj()
-        )
-        action_form = QVBoxLayout()
-        action_form.addWidget(QLabel(f"<b>{friendly_name}</b>"))
-        action_prop_form = PropertyForm(action_object)
-        action_prop_form.form_layout.addRow("", action_button)
-        action_prop_form.setContentsMargins(20, 0, 0, 0)
-
-        action_form.addWidget(action_prop_form)
-        self.actions_container.addLayout(action_form)
+        action_prop_form = PropertyWidget.from_type(action_object.__class__)
+        action_prop_form.value = action_object
+        self.actions_container.addWidget(action_prop_form)
 
     @property
     def has_widgets(self) -> bool:
@@ -931,3 +935,43 @@ def is_subtype(child_type, parent_type) -> bool:
             return True
 
     return False
+
+
+class ActionForm(PropertyForm):
+    @staticmethod
+    def from_property_impl(prop: property) -> "ActionForm":
+        hints = T.get_type_hints(prop.fget)
+        return ActionForm.from_type(hints["return"])
+
+    @staticmethod
+    def from_type(cls: type) -> "ActionForm":
+        return ActionForm(cls(lambda: None, None))
+
+    def __init__(self, obj: object | None) -> None:
+        self.title_label = QLabel()
+
+        super().__init__(obj)
+
+    def _setup_grid(self) -> None:
+        self.grid_layout.addWidget(self.title_label, 0, 0)
+        super()._setup_grid()
+
+    def _setup_form(self) -> None:
+        super()._setup_form()
+        self.action_button = QPushButton()
+        self.action_button.clicked.connect(self._on_action_button_pressed)
+        self.form_layout.addRow("", self.action_button)
+
+    def _on_action_button_pressed(self) -> T.Any:
+        return self.value()
+
+    @property
+    def value(self) -> ActionObject:
+        return PropertyForm.value.fget(self)
+
+    @value.setter
+    def value(self, value: ActionObject) -> None:
+        PropertyForm.value.fset(self, value)
+        friendly_name = value.func.__name__.replace("_", " ").title()
+        self.title_label.setText(friendly_name)
+        self.action_button.setText(f"Run: {friendly_name}")
