@@ -973,5 +973,5 @@ class ActionForm(PropertyForm):
     def value(self, value: ActionObject) -> None:
         PropertyForm.value.fset(self, value)
         friendly_name = value.func.__name__.replace("_", " ").title()
-        self.title_label.setText(friendly_name)
+        self.title_label.setText(f"<b>{friendly_name}</b>")
         self.action_button.setText(f"Run: {friendly_name}")

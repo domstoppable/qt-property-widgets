@@ -273,7 +273,8 @@ def create_action_object(func: T.Callable, instance: T.Any) -> ActionObject:
     hints = T.get_type_hints(func)
 
     class ActionObjectSpec(ActionObject):
-        pass
+        def __init__(self):
+            super().__init__(func, instance)
 
     for arg_name, return_type in hints.items():
         if arg_name == "return":
@@ -290,4 +291,4 @@ def create_action_object(func: T.Callable, instance: T.Any) -> ActionObject:
         prop = property(_getter, _setter)
         setattr(ActionObjectSpec, arg_name, prop)
 
-    return ActionObjectSpec(func, instance)
+    return ActionObjectSpec()
