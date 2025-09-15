@@ -16,9 +16,11 @@ from PySide6.QtGui import (
     QFont,
     QIcon,
     QImage,
+    QMouseEvent,
     QPainter,
     QPainterPath,
     QPixmap,
+    QWheelEvent,
 )
 from PySide6.QtWidgets import (
     QColorDialog,
@@ -457,6 +459,27 @@ class TextWidget(PropertyWidget):
         self.widget.setText(value)
 
 
+class TickSnappingSlider(QSlider):
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        super().mouseMoveEvent(event)
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.snap_to_nearest_tick()
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        super().wheelEvent(event)
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.snap_to_nearest_tick()
+
+    def snap_to_nearest_tick(self):
+        tick_space = self.tickInterval()
+        if tick_space > 0:
+            min_value = self.minimum()
+
+            tick_ordinal = round((self.value() - min_value) / tick_space)
+            self.setValue(min_value + tick_ordinal * tick_space)
+            self.triggerAction(QSlider.SliderAction.SliderMove)
+
+
 class SpinboxWidget(PropertyWidget):
     value_changed = Signal(float)
 
@@ -492,7 +515,7 @@ class SpinboxWidget(PropertyWidget):
     def __init__(self) -> None:
         super().__init__()
 
-        self.slider = QSlider(self)
+        self.slider = TickSnappingSlider(self)
         self.slider.setOrientation(Qt.Orientation.Horizontal)
         self.slider.valueChanged.connect(lambda: self.spinbox.setValue(self.slider.value() / 10**self.decimals))
         self.slider.setVisible(False)
@@ -502,6 +525,10 @@ class SpinboxWidget(PropertyWidget):
         self.spinbox.valueChanged.connect(lambda: self.value_changed.emit(self.value))
         self.spinbox.valueChanged.connect(lambda: self.slider.setValue(int(self.spinbox.value() * 10**self.decimals)))
         self.grid_layout.addWidget(self.spinbox, 0, 1)
+
+    def setRange(self, min_value: float, max_value: float) -> None:
+        self.min = min_value
+        self.max = max_value
 
     @property
     def min(self) -> float:
