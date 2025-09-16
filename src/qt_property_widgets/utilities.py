@@ -105,7 +105,7 @@ class PersistentPropertiesMixin:
                 if prop.fset:
                     prop.fset(self, value)
 
-            elif key in self._action_objects:
+            elif hasattr(self, "_action_objects") and key in self._action_objects:
                 action_object = self._action_objects[key]
                 action_props = get_properties(action_object.__class__)
                 for arg_name, arg_value in value.items():
