@@ -98,6 +98,9 @@ class WidgetSetterProperty(property):
         if self.fset:
             widget.value_changed.connect(lambda v: self.wrapped_setter(obj, v))
 
+        if not self.source_prop.fset and hasattr(widget, "setReadOnly"):
+            widget.setReadOnly(True)
+
 
 class PropertyWidget(QWidget):
     deferred_type_widgets: T.ClassVar[list[type]] = []
@@ -116,6 +119,9 @@ class PropertyWidget(QWidget):
         super().__init_subclass__(**kwargs)  # type: ignore
 
         PropertyWidget.deferred_type_widgets.append(cls)
+
+    def setReadOnly(self, read_only: bool) -> None:
+        self.setDisabled(read_only)
 
     @property
     def value(self) -> T.Any:
@@ -449,6 +455,9 @@ class TextWidget(PropertyWidget):
         self.widget.textChanged.connect(lambda: self.value_changed.emit(self.value))
 
         self.grid_layout.addWidget(self.widget, 0, 0)
+
+    def setReadOnly(self, read_only: bool) -> None:
+        self.widget.setReadOnly(read_only)
 
     @property
     def value(self) -> str:
