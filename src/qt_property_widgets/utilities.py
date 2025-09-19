@@ -154,6 +154,7 @@ class PersistentPropertiesMixin:
             else:
                 converter = item_type
 
+            item_type = T.get_origin(item_type) or item_type
             value = [
                 converter(item) if not isinstance(item, item_type) else item
                 for item in value
@@ -161,9 +162,24 @@ class PersistentPropertiesMixin:
 
         elif target_class is dict:
             type_args = T.get_args(target_type)
+            if len(type_args) > 0:
+                def key_convert(k):
+                    return PersistentPropertiesMixin.type_convert(k, type_args[0])
+            else:
+                def key_convert(k):
+                    return k
+
             if len(type_args) > 1:
-                sub_target_type = type_args[1]
-                value = {k:PersistentPropertiesMixin.type_convert(v, sub_target_type) for k, v in value.items()}
+                def value_convert(v):
+                    return PersistentPropertiesMixin.type_convert(v, type_args[1])
+            else:
+                def value_convert(v):
+                    return v
+
+            value = {
+                key_convert(k): value_convert(v)
+                for k, v in value.items()
+            }
 
         return value
 
