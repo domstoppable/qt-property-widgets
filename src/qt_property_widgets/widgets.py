@@ -738,7 +738,14 @@ class ValueListWidget(PropertyWidget):
         self.container_layout.setContentsMargins(0, 0, 0, 0)
 
         # Button for adding a new item.
-        add_button = QPushButton(self.prop_parameters.get("add_button_text", "Add value"), self)
+        value_desc = "value"
+        if hasattr(self.item_class, "__name__"):
+            value_desc = self.item_class.__name__
+
+        add_button = QPushButton(
+            self.prop_parameters.get("add_button_text", f"Add {value_desc}"),
+            self
+        )
         add_button.clicked.connect(self.on_add_button_clicked)
 
         self.grid_layout.addWidget(self.container_widget, 0, 0)
@@ -994,6 +1001,9 @@ class ActionForm(PropertyForm):
 
     def _setup_form(self) -> None:
         super()._setup_form()
+        if self.form_layout.rowCount() == 0:
+            self.grid_layout.removeWidget(self.title_label)
+
         self.action_button = QPushButton()
         self.action_button.clicked.connect(self._on_action_button_pressed)
         self.form_layout.addRow("", self.action_button)
@@ -1010,4 +1020,4 @@ class ActionForm(PropertyForm):
         PropertyForm.value.fset(self, value)
         friendly_name = value.func.__name__.replace("_", " ").title()
         self.title_label.setText(f"<b>{friendly_name}</b>")
-        self.action_button.setText(f"Run: {friendly_name}")
+        self.action_button.setText(friendly_name)
