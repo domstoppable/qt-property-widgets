@@ -44,6 +44,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .expander import Expander
 from .utilities import ActionObject, create_action_object, get_properties
 
 
@@ -207,6 +208,7 @@ class PropertyWidget(QWidget):
         PropertyWidget.deferred_type_widgets.clear()
 
         return PropertyWidget._known_type_widgets
+
 
 class PathWidget(PropertyWidget):
     value_changed = Signal(Path)
@@ -697,28 +699,46 @@ class ValueListItemWidget(QWidget):
         self.item_widget = item_widget
         self.delete_button = QPushButton("×", self)  # noqa: RUF001
         self.delete_button.setFixedSize(20, 20)
+        self.delete_button.setStyleSheet("""
+            QPushButton {
+                border-radius: 5px;
+                border: 1px solid #555;
+                background-color: #440808;
+            }
+
+            QPushButton::hover {
+                background-color: #c11;
+            }
+        """)
+        self.delete_button.setToolTip("Remove item")
 
         if isinstance(item_widget, PropertyForm):
+            if hasattr(item_widget.value, "name"):
+                title = item_widget.value.name
+                if hasattr(item_widget.value, "changed"):
+                    item_widget.value.changed.connect(self._update_title)
+            else:
+                title = item_widget.value.__class__.__name__
+
             layout = QVBoxLayout(self)
-            title_bar = QWidget()
-            title_bar.setStyleSheet("font-weight: bold")
+            self.expander = Expander(
+                title=title,
+                content_widget=self.item_widget
+            )
+            self.expander.layout().setContentsMargins(0, 3, 0, 10)
+            layout.addWidget(self.expander)
+            self.expander.controls_layout.insertWidget(0, self.delete_button)
 
-            tbar_layout = QHBoxLayout()
-            tbar_layout.setContentsMargins(0, 0, 0, 0)
-            tbar_layout.addWidget(QLabel(item_widget.value.__class__.__name__))
-            tbar_layout.addWidget(self.delete_button)
-            title_bar.setLayout(tbar_layout)
-
-            layout.addWidget(title_bar)
-            layout.addWidget(item_widget)
         else:
             layout = QHBoxLayout(self)
+            layout.addWidget(self.delete_button)
             if item_widget is not None:
                 layout.addWidget(item_widget, stretch=1)
 
-            layout.addWidget(self.delete_button)
-
         layout.setContentsMargins(0, 0, 0, 0)
+
+    def _update_title(self):
+        self.expander.title = self.item_widget.value.name
 
 
 class ValueListWidget(PropertyWidget):
@@ -739,7 +759,9 @@ class ValueListWidget(PropertyWidget):
 
         # Button for adding a new item.
         value_desc = "value"
-        if hasattr(self.item_class, "__name__"):
+        if self.item_class in [str, int, float, bool]:
+            pass
+        elif hasattr(self.item_class, "__name__"):
             value_desc = self.item_class.__name__
 
         add_button = QPushButton(
@@ -922,6 +944,10 @@ class PropertyForm(PropertyWidget):
         action_prop_form = PropertyWidget.from_type(action_object.__class__)
         action_prop_form.value = action_object
         self.actions_container.addWidget(action_prop_form)
+
+    def remove_action(self, action_name: str) -> None:
+        # @TODO: implement remove_action
+        pass
 
     @property
     def has_widgets(self) -> bool:
