@@ -79,6 +79,7 @@ def get_properties(cls: type) -> dict[str, property]:
 class PersistentPropertiesMixin:
     def __init__(self) -> None:
         super().__init__()
+        self._setting_state = False
 
         self._action_objects: dict[str, ActionObject] = {}
         if hasattr(self.__class__, "_actions"):
@@ -90,6 +91,8 @@ class PersistentPropertiesMixin:
                     action_object.changed.connect(self.changed.emit)
 
     def __setstate__(self, state: dict) -> None:
+        self._setting_state = True
+
         properties = get_properties(self.__class__)
 
         for key, value in state.items():
@@ -120,6 +123,8 @@ class PersistentPropertiesMixin:
                                 )
 
                         action_object.args[arg_name] = arg_value
+
+        self._setting_state = False
 
     @staticmethod
     def type_convert(value: T.Any, target_type: type) -> T.Any:
