@@ -107,6 +107,7 @@ class PropertyWidget(QWidget):
     deferred_type_widgets: T.ClassVar[list[type]] = []
     _known_type_widgets: T.ClassVar[dict[type, type]] = {}
     value_changed = Signal(object)
+    changed = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -115,6 +116,7 @@ class PropertyWidget(QWidget):
         self.grid_layout.setContentsMargins(0, 0, 0, 0)
 
         self._prop_setter = None
+        self.value_changed.connect(lambda _: self.changed.emit())
 
     def __init_subclass__(cls: type, **kwargs: T.Any) -> None:
         super().__init_subclass__(**kwargs)  # type: ignore
@@ -888,6 +890,7 @@ class PropertyForm(PropertyWidget):
 
         self._setup_grid()
         self.value = obj
+        self.property_changed.connect(lambda _p, _v: self.changed.emit())
 
     def _setup_grid(self) -> None:
         self.form_layout = QFormLayout()
