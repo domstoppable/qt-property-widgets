@@ -765,22 +765,24 @@ class ValueListWidget(PropertyWidget):
         self.container_widget = QWidget(self)
         self.container_layout = QVBoxLayout(self.container_widget)
         self.container_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Button for adding a new item.
-        value_desc = "value"
-        if self.item_class in [str, int, float, bool]:
-            pass
-        elif hasattr(self.item_class, "__name__"):
-            value_desc = self.item_class.__name__
-
-        add_button = QPushButton(
-            self.prop_parameters.get("add_button_text", f"Add {value_desc}"),
-            self
-        )
-        add_button.clicked.connect(self.on_add_button_clicked)
-
         self.grid_layout.addWidget(self.container_widget, 0, 0)
-        self.grid_layout.addWidget(add_button, 1, 0)
+
+        if not self.prop_parameters.get("prevent_add", False):
+            # Button for adding a new item.
+            value_desc = "value"
+            if self.item_class in [str, int, float, bool]:
+                pass
+
+            elif hasattr(self.item_class, "__name__"):
+                value_desc = self.item_class.__name__
+
+            add_button = QPushButton(
+                self.prop_parameters.get("add_button_text", f"Add {value_desc}"),
+                self
+            )
+            add_button.clicked.connect(self.on_add_button_clicked)
+
+            self.grid_layout.addWidget(add_button, 1, 0)
 
         self.item_widgets: list[ValueListItemWidget] = []
 
