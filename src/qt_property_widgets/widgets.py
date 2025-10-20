@@ -824,7 +824,6 @@ class ValueListWidget(PropertyWidget):
 
     def add_item(self, obj: T.Any) -> None:
         item_widget = PropertyWidget.from_type(self.item_class)
-        item_widget.value_changed.connect(lambda _: self.value_changed.emit(self.value))
 
         if item_widget and hasattr(item_widget, "value"):
             item_widget.value = obj
@@ -835,6 +834,8 @@ class ValueListWidget(PropertyWidget):
         )
 
         self.container_layout.addWidget(list_item_wrapper)
+        item_widget.changed.connect(lambda: self.changed.emit())
+        item_widget.value_changed.connect(lambda _: self.value_changed.emit(self.value))
 
     def remove_item(self, item_widget: ValueListItemWidget) -> None:
         self.container_layout.removeWidget(item_widget)
