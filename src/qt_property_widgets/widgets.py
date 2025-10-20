@@ -446,7 +446,14 @@ class TextWidget(PropertyWidget):
 
     @staticmethod
     def from_property_impl(prop: property) -> "TextWidget":
-        return TextWidget()
+        w = TextWidget()
+
+        if prop.fget and hasattr(prop.fget, "parameters"):
+            parameters = prop.fget.parameters
+            if "max_length" in parameters:
+                w.widget.setMaxLength(parameters["max_length"])
+
+        return w
 
     @staticmethod
     def from_type(cls: type) -> "TextWidget":
