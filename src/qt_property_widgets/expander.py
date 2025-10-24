@@ -1,6 +1,14 @@
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import (
+    QEasingCurve,
+    QPropertyAnimation,
+    QSequentialAnimationGroup,
+    Qt,
+    QTimer,
+    Signal,
+)
 from PySide6.QtWidgets import (
     QFrame,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -95,17 +103,17 @@ class ExpanderList(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent=parent)
 
-        scroll_area = QScrollArea(self)
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
 
         container = QWidget()
         self.container_layout = QVBoxLayout(container)
         self.container_layout.setSpacing(0)
         self.container_layout.setContentsMargins(5, 5, 5, 5)
 
-        scroll_area.setWidget(container)
+        self.scroll_area.setWidget(container)
 
         main_layout = QVBoxLayout(self)
 
@@ -116,7 +124,7 @@ class ExpanderList(QWidget):
         self.search_widget.textChanged.connect(self.on_search_text_changed)
 
         main_layout.addWidget(self.search_widget)
-        main_layout.addWidget(scroll_area)
+        main_layout.addWidget(self.scroll_area)
         main_layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(main_layout)
 
@@ -159,6 +167,44 @@ class ExpanderList(QWidget):
         self.container_layout.insertWidget(self.container_layout.count() - 1, expander)
 
         return expander
+
+    def highlight(
+        self,
+        expander: Expander,
+        duration: float = 0.75,
+        min_opacity: float = 0.25,
+        max_opacity: float = 1.0,
+        blinks: int = 2,
+    ) -> None:
+
+        expander.expanded = True
+
+        effect = expander.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(expander)
+            effect.setOpacity(1.0)
+            expander.setGraphicsEffect(effect)
+
+        fade_out = QPropertyAnimation(effect, b"opacity", expander)
+        fade_out.setDuration(duration * 1000 / blinks / 2)
+        fade_out.setStartValue(max_opacity)
+        fade_out.setEndValue(min_opacity)
+        fade_out.setEasingCurve(QEasingCurve.InOutQuad)
+
+        fade_in = QPropertyAnimation(effect, b"opacity", expander)
+        fade_in.setDuration(duration * 1000 / blinks / 2)
+        fade_in.setStartValue(min_opacity)
+        fade_in.setEndValue(max_opacity)
+        fade_in.setEasingCurve(QEasingCurve.InOutQuad)
+
+        sequence = QSequentialAnimationGroup()
+        sequence.addAnimation(fade_out)
+        sequence.addAnimation(fade_in)
+        sequence.setLoopCount(blinks)
+        QTimer.singleShot(250, lambda: self.scroll_area.ensureWidgetVisible(expander))
+        QTimer.singleShot(250, sequence.start)
+
+        self.anim = sequence
 
     def remove_expander(self, expander: Expander) -> None:
         del self.sort_keys[expander]
