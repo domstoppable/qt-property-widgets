@@ -678,6 +678,12 @@ class FlagsWidget(PropertyWidget):
         self._flags = {}
         self.grid_layout.setContentsMargins(5, 3, 0, 0)
 
+    def _label_lookup(self, key):
+        if "label_lookup" in self.source_params:
+            return self.source_params["label_lookup"](key)
+
+        return key
+
     @property
     def value(self) -> T.Mapping[str, bool]:
         return self._flags
@@ -696,7 +702,9 @@ class FlagsWidget(PropertyWidget):
             w = BoolWidget()
             w.value = self._flags[k]
             w.value_changed.connect(lambda new_v, k=k: self._on_value_changed(k, new_v))
-            self.grid_layout.addWidget(QLabel(k), idx, 0)
+
+            label = self._label_lookup(k)
+            self.grid_layout.addWidget(QLabel(label), idx, 0)
             self.grid_layout.addWidget(w, idx, 1)
 
         self.value_changed.emit(value)
