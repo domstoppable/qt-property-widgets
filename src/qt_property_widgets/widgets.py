@@ -20,6 +20,7 @@ from PySide6.QtGui import (
     QPainter,
     QPainterPath,
     QPixmap,
+    QShowEvent,
     QWheelEvent,
 )
 from PySide6.QtWidgets import (
@@ -117,6 +118,8 @@ class PropertyWidget(QWidget):
 
         self._prop_setter = None
         self.value_changed.connect(lambda _: self.changed.emit())
+        self.source_property: property|None = None
+        self.source_params: dict = {}
 
     def __init_subclass__(cls: type, **kwargs: T.Any) -> None:
         super().__init_subclass__(**kwargs)  # type: ignore
@@ -153,6 +156,8 @@ class PropertyWidget(QWidget):
                 widget_class = actual_prop.fget.parameters["widget"]
                 if widget_class is None:
                     return None
+        else:
+            params = {}
 
         if widget_class is None:
             hints = T.get_type_hints(actual_prop.fget)
@@ -160,6 +165,8 @@ class PropertyWidget(QWidget):
             widget_class = PropertyWidget.get_widget_class_from_value_class(value_type)
 
         w: PropertyWidget = widget_class.from_property_impl(actual_prop)
+        w.source_property = actual_prop
+        w.source_params = params
         if instance is not None:
             w.value = actual_prop.fget(instance)
             if not isinstance(actual_prop, WidgetSetterProperty):
@@ -694,7 +701,6 @@ class FlagsWidget(PropertyWidget):
 
         self.value_changed.emit(value)
 
-
     def _on_value_changed(self, key: str, value: bool) -> None:
         tmp_flags = self._flags.copy()
         tmp_flags[key] = value
@@ -722,12 +728,14 @@ class ValueListItemWidget(QWidget):
         self.delete_button.setToolTip("Remove item")
 
         if isinstance(item_widget, PropertyForm):
-            if hasattr(item_widget.value, "name"):
-                title = item_widget.value.name
-                if hasattr(item_widget.value, "changed"):
-                    item_widget.value.changed.connect(self._update_title)
-            else:
-                title = item_widget.value.__class__.__name__
+            self.label_field = item_widget.source_params.get("label_field", "__name__")
+            if item_widget.value:
+                if hasattr(item_widget.value, self.label_field):
+                    title = getattr(item_widget.value, self.label_field)
+                    if hasattr(item_widget.value, "changed"):
+                        item_widget.value.changed.connect(self._update_title)
+                else:
+                    title = item_widget.value.__class__.__name__
 
             layout = QVBoxLayout(self)
             self.expander = Expander(
@@ -747,27 +755,23 @@ class ValueListItemWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
 
     def _update_title(self):
-        self.expander.title = self.item_widget.value.name
+        self.expander.title = getattr(self.item_widget.value, self.label_field)
 
 
 class ValueListWidget(PropertyWidget):
     value_changed = Signal(list)
 
-    def __init__(self, item_class: type, prop_parameters: dict | None = None) -> None:
-        if prop_parameters is None:
-            prop_parameters = {}
-
+    def __init__(self, item_class: type) -> None:
         super().__init__()
 
         self.item_class = item_class
-        self.prop_parameters = prop_parameters
 
         self.container_widget = QWidget(self)
         self.container_layout = QVBoxLayout(self.container_widget)
         self.container_layout.setContentsMargins(0, 0, 0, 0)
         self.grid_layout.addWidget(self.container_widget, 0, 0)
 
-        if not self.prop_parameters.get("prevent_add", False):
+        if not self.source_params.get("prevent_add", False):
             # Button for adding a new item.
             value_desc = "value"
             if self.item_class in [str, int, float, bool]:
@@ -776,18 +780,25 @@ class ValueListWidget(PropertyWidget):
             elif hasattr(self.item_class, "__name__"):
                 value_desc = self.item_class.__name__
 
-            add_button = QPushButton(
-                self.prop_parameters.get("add_button_text", f"Add {value_desc}"),
+            self.add_button = QPushButton(
+                self.source_params.get("add_button_text", f"Add {value_desc}"),
                 self
             )
-            add_button.clicked.connect(self.on_add_button_clicked)
+            self.add_button.clicked.connect(self.on_add_button_clicked)
 
-            self.grid_layout.addWidget(add_button, 1, 0)
+            self.grid_layout.addWidget(self.add_button, 1, 0)
 
         self.item_widgets: list[ValueListItemWidget] = []
 
+    def showEvent(self, show_event: QShowEvent) -> None:
+        add_button_text = self.source_params.get("add_button_text", None)
+        if add_button_text:
+            self.add_button.setText(self.source_params["add_button_text"])
+
+        super().showEvent(show_event)
+
     def on_add_button_clicked(self) -> None:
-        if self.prop_parameters.get("use_subclass_selector", False) and hasattr(
+        if self.source_params.get("use_subclass_selector", False) and hasattr(
             self.item_class, "_known_types"
         ):
             dialog = QDialog(self)
@@ -797,8 +808,13 @@ class ValueListWidget(PropertyWidget):
             dialog.setLayout(layout)
 
             combo_box = QComboBox(dialog)
+
+            item_params = self.source_params.get("item_params", {})
+            label_field = item_params.get("label_field", "__name__")
             for subtype in self.item_class._known_types:
-                combo_box.addItem(subtype.__name__, subtype)
+                subtype_name = getattr(subtype, label_field)
+                combo_box.addItem(subtype_name, subtype)
+
             layout.addWidget(combo_box)
 
             button_box = QDialogButtonBox(
@@ -828,6 +844,10 @@ class ValueListWidget(PropertyWidget):
         if item_widget and hasattr(item_widget, "value"):
             item_widget.value = obj
 
+        item_widget.source_params = self.source_params.get(
+            "item_params", {}
+        )
+
         list_item_wrapper: ValueListItemWidget = ValueListItemWidget(item_widget)
         list_item_wrapper.delete_button.clicked.connect(
             lambda: self.remove_item(list_item_wrapper)
@@ -848,11 +868,7 @@ class ValueListWidget(PropertyWidget):
         return_type = hints["return"]
         item_type = T.get_args(return_type)[0]
 
-        prop_parameters = None
-        if prop.fget and hasattr(prop.fget, "parameters"):
-            prop_parameters = prop.fget.parameters
-
-        return ValueListWidget(item_type, prop_parameters)
+        return ValueListWidget(item_type)
 
     @staticmethod
     def from_type(cls: type) -> "ValueListWidget":
