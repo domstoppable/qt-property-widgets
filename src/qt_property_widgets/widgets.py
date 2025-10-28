@@ -198,8 +198,12 @@ class PropertyWidget(QWidget):
         if not candidates:
             raise ValueError(f"No widget class found for type {cls}")
 
-        # Sort candidates by specificity (most specific class comes first)
-        candidates.sort(key=lambda c: len(c.mro()) + (999 if c == PropertyForm else 0))
+        # Sort candidates by specificity of value class (most specific first)
+        def sort_key(widget):
+            hints = T.get_type_hints(widget.value.fget)
+            return -len(hints["return"].mro())
+
+        candidates.sort(key=sort_key)
         return candidates[0]
 
     @staticmethod
