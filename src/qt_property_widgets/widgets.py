@@ -46,7 +46,7 @@ from PySide6.QtWidgets import (
 )
 
 from .expander import Expander
-from .utilities import ActionObject, create_action_object, get_properties
+from .utilities import ActionObject, FilePath, create_action_object, get_properties
 
 
 class WidgetSetterProperty(property):
@@ -274,7 +274,7 @@ class PathWidget(PropertyWidget):
         if self._value is None:
             self.widget.setText("🖿")
         else:
-            as_string = str(self._value.resolve().stem)
+            as_string = str(self._value.resolve().name)
             if len(as_string) > 32:
                 as_string = as_string[:14] + "..." + as_string[-14:]
 
@@ -287,6 +287,28 @@ class PathWidget(PropertyWidget):
     @value.setter
     def value(self, value: str | Path) -> None:
         self._value = Path(value or ".")
+        self._update_text()
+
+
+class FilePathWidget(PathWidget):
+    @staticmethod
+    def from_property_impl(prop: property) -> "PathWidget":
+        widget = FilePathWidget()
+        widget.directory_mode = False
+
+        return widget
+
+    @property
+    def value(self) -> FilePath:
+        return self._value
+
+    @value.setter
+    def value(self, value: str | Path) -> None:
+        if value is None:
+            self._value = None
+        else:
+            self._value = Path(value)
+
         self._update_text()
 
 

@@ -76,6 +76,10 @@ def get_properties(cls: type) -> dict[str, property]:
     return properties
 
 
+class FilePath(Path):
+    pass
+
+
 class PersistentPropertiesMixin:
     def __init__(self) -> None:
         super().__init__()
