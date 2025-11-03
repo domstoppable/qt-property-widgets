@@ -242,11 +242,15 @@ class PathWidget(PropertyWidget):
     def __init__(self) -> None:
         super().__init__()
 
-        self.widget = QPushButton()
-        self.widget.clicked.connect(lambda _: self._on_browse_clicked())
+        self.widget = QLineEdit()
+        self.widget.setReadOnly(True)
+        self.button = QToolButton()
+        self.button.setText("…")
+        self.button.clicked.connect(lambda _: self._on_browse_clicked())
         self._value: Path = Path(".")
 
         self.grid_layout.addWidget(self.widget, 0, 0)
+        self.grid_layout.addWidget(self.button, 0, 1)
 
         self.filter = ""
         self.directory_mode = False
@@ -272,13 +276,13 @@ class PathWidget(PropertyWidget):
 
     def _update_text(self):
         if self._value is None:
-            self.widget.setText("🖿")
+            self.widget.setText("")
         else:
-            as_string = str(self._value.resolve().name)
+            as_string = str(self._value.resolve())
             if len(as_string) > 32:
                 as_string = as_string[:14] + "..." + as_string[-14:]
 
-            self.widget.setText(f"🖿 {as_string}")
+            self.widget.setText(as_string)
 
     @property
     def value(self) -> Path:
