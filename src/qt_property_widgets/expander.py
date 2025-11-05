@@ -103,19 +103,11 @@ class ExpanderList(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent=parent)
 
-        self.scroll_area = QScrollArea(self)
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
-
-        container = QWidget()
-        self.container_layout = QVBoxLayout(container)
+        self.container_layout = QVBoxLayout()
         self.container_layout.setSpacing(0)
         self.container_layout.setContentsMargins(5, 5, 5, 5)
 
-        self.scroll_area.setWidget(container)
-
-        main_layout = QVBoxLayout(self)
+        main_layout = QVBoxLayout()
 
         self.search_widget = QLineEdit()
         self.search_widget.setStyleSheet("margin: 5px; padding: 5px")
@@ -124,7 +116,7 @@ class ExpanderList(QWidget):
         self.search_widget.textChanged.connect(self.on_search_text_changed)
 
         main_layout.addWidget(self.search_widget)
-        main_layout.addWidget(self.scroll_area)
+        main_layout.addLayout(self.container_layout)
         main_layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(main_layout)
 
@@ -201,10 +193,24 @@ class ExpanderList(QWidget):
         sequence.addAnimation(fade_out)
         sequence.addAnimation(fade_in)
         sequence.setLoopCount(blinks)
-        QTimer.singleShot(250, lambda: self.scroll_area.ensureWidgetVisible(expander))
+        self.ensure_visible(expander)
         QTimer.singleShot(250, sequence.start)
 
         self.anim = sequence
+
+    def ensure_visible(self, expander: Expander) -> None:
+        scroll_area = self.find_enclosing_scrollarea()
+        if scroll_area:
+            scroll_area.ensureWidgetVisible(expander)
+
+    def find_enclosing_scrollarea(self) -> QScrollArea|None:
+        w = self
+        while w is not None:
+            if isinstance(w, QScrollArea):
+                return w
+            w = w.parentWidget()
+
+        return None
 
     def remove_expander(self, expander: Expander) -> None:
         del self.sort_keys[expander]
