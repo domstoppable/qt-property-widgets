@@ -5,6 +5,8 @@ from enum import Enum
 from pathlib import Path
 
 from PySide6.QtCore import (
+    QEvent,
+    QObject,
     QSize,
     Qt,
     Signal,
@@ -47,6 +49,18 @@ from PySide6.QtWidgets import (
 
 from .expander import Expander
 from .utilities import ActionObject, FilePath, create_action_object, get_properties
+
+
+class IgnoreWheelEventFilter(QObject):
+    def eventFilter(self, watched, event) -> bool:
+        if event.type() == QEvent.Type.Wheel:
+            event.ignore()
+            return True
+
+        return super().eventFilter(watched, event)
+
+
+WHEEL_EVENT_FILTER = IgnoreWheelEventFilter()
 
 
 class WidgetSetterProperty(property):
@@ -573,12 +587,14 @@ class SpinboxWidget(PropertyWidget):
         super().__init__()
 
         self.slider = TickSnappingSlider(self)
+        self.slider.installEventFilter(WHEEL_EVENT_FILTER)
         self.slider.setOrientation(Qt.Orientation.Horizontal)
         self.slider.valueChanged.connect(lambda: self.spinbox.setValue(self.slider.value() / 10**self.decimals))
         self.slider.setVisible(False)
         self.grid_layout.addWidget(self.slider, 0, 0)
 
         self.spinbox = QDoubleSpinBox(self)
+        self.spinbox.installEventFilter(WHEEL_EVENT_FILTER)
         self.spinbox.valueChanged.connect(lambda: self.value_changed.emit(self.value))
         self.spinbox.valueChanged.connect(lambda: self.slider.setValue(int(self.spinbox.value() * 10**self.decimals)))
         self.grid_layout.addWidget(self.spinbox, 0, 1)
