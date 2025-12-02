@@ -38,7 +38,7 @@ class Expander(QFrame):
 
         self.content_widget = content_widget
         if content_widget:
-            content_widget.setContentsMargins(0, 0, 8, 0)
+            content_widget.setContentsMargins(25, 0, 8, 0)
 
         self.label = QLabel(title)
         self.label.mousePressEvent = lambda *_: self.expander_button.click()  # type: ignore
