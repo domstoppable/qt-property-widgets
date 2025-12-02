@@ -6,6 +6,7 @@ from PySide6.QtCore import (
     QTimer,
     Signal,
 )
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QFrame,
     QGraphicsOpacityEffect,
@@ -18,6 +19,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from qt_property_widgets import asset_path
 
 
 class Expander(QFrame):
@@ -43,9 +46,10 @@ class Expander(QFrame):
         self.expander_button = QToolButton()
         self.expander_button.setCheckable(True)
         self.expander_button.setChecked(expanded)
+        self.expander_button.setStyleSheet("border: none")
         self.controls_layout = QHBoxLayout()
-        self.controls_layout.addWidget(self.label)
-        self.controls_layout.addWidget(self.expander_button)
+        self.controls_layout.addWidget(self.expander_button, 0)
+        self.controls_layout.addWidget(self.label, 1)
 
         self.label.setCursor(Qt.CursorShape.PointingHandCursor)
         self.expander_button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -65,7 +69,7 @@ class Expander(QFrame):
 
     def on_expand_toggled(self) -> None:
         if not self.expanded:
-            self.expander_button.setText("\uff0d")
+            self.expander_button.setIcon(QPixmap(asset_path("arrow-down.svg")))
 
             if self.content_widget:
                 self.content_widget.show()
@@ -73,7 +77,7 @@ class Expander(QFrame):
                     QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum
                 )
         else:
-            self.expander_button.setText("\uff0b")
+            self.expander_button.setIcon(QPixmap(asset_path("arrow-right.svg")))
 
             if self.content_widget:
                 self.content_widget.hide()

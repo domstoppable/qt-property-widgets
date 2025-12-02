@@ -815,10 +815,11 @@ class ValueListItemWidget(QWidget):
 class ValueListWidget(PropertyWidget):
     value_changed = Signal(list)
 
-    def __init__(self, item_class: type) -> None:
+    def __init__(self, item_class: type, source_params: dict) -> None:
         super().__init__()
 
         self.item_class = item_class
+        self.source_params = source_params
 
         self.container_widget = QWidget(self)
         self.container_layout = QVBoxLayout(self.container_widget)
@@ -846,7 +847,7 @@ class ValueListWidget(PropertyWidget):
 
     def showEvent(self, show_event: QShowEvent) -> None:
         add_button_text = self.source_params.get("add_button_text", None)
-        if add_button_text:
+        if add_button_text and hasattr(self, "add_button"):
             self.add_button.setText(self.source_params["add_button_text"])
 
         super().showEvent(show_event)
@@ -855,37 +856,41 @@ class ValueListWidget(PropertyWidget):
         if self.source_params.get("use_subclass_selector", False) and hasattr(
             self.item_class, "_known_types"
         ):
-            dialog = QDialog(self)
-            dialog.setWindowTitle("Select Type")
+            if len(self.item_class._known_types) == 1:
+                v = self.item_class._known_types[0]()
 
-            layout = QVBoxLayout()
-            dialog.setLayout(layout)
-
-            combo_box = QComboBox(dialog)
-
-            item_params = self.source_params.get("item_params", {})
-            label_field = item_params.get("label_field", "__name__")
-            for subtype in self.item_class._known_types:
-                subtype_name = getattr(subtype, label_field)
-                combo_box.addItem(subtype_name, subtype)
-
-            layout.addWidget(combo_box)
-
-            button_box = QDialogButtonBox(
-                QDialogButtonBox.StandardButton.Ok
-                | QDialogButtonBox.StandardButton.Cancel,
-                dialog,
-            )
-            layout.addWidget(button_box)
-
-            button_box.accepted.connect(dialog.accept)
-            button_box.rejected.connect(dialog.reject)
-
-            if dialog.exec() == QDialog.DialogCode.Accepted:
-                selected_class = combo_box.currentData()
-                v = selected_class()
             else:
-                return
+                dialog = QDialog(self)
+                dialog.setWindowTitle("Select Type")
+
+                layout = QVBoxLayout()
+                dialog.setLayout(layout)
+
+                combo_box = QComboBox(dialog)
+
+                item_params = self.source_params.get("item_params", {})
+                label_field = item_params.get("label_field", "__name__")
+                for subtype in self.item_class._known_types:
+                    subtype_name = getattr(subtype, label_field)
+                    combo_box.addItem(subtype_name, subtype)
+
+                layout.addWidget(combo_box)
+
+                button_box = QDialogButtonBox(
+                    QDialogButtonBox.StandardButton.Ok
+                    | QDialogButtonBox.StandardButton.Cancel,
+                    dialog,
+                )
+                layout.addWidget(button_box)
+
+                button_box.accepted.connect(dialog.accept)
+                button_box.rejected.connect(dialog.reject)
+
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    selected_class = combo_box.currentData()
+                    v = selected_class()
+                else:
+                    return
         else:
             v = self.item_class()
 
@@ -922,7 +927,9 @@ class ValueListWidget(PropertyWidget):
         return_type = hints["return"]
         item_type = T.get_args(return_type)[0]
 
-        return ValueListWidget(item_type)
+        source_params = prop.fget.parameters if hasattr(prop.fget, "parameters") else {}
+
+        return ValueListWidget(item_type, source_params)
 
     @staticmethod
     def from_type(cls: type) -> "ValueListWidget":
