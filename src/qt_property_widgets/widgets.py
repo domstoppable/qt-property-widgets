@@ -48,7 +48,13 @@ from PySide6.QtWidgets import (
 )
 
 from .expander import Expander
-from .utilities import ActionObject, FilePath, create_action_object, get_properties
+from .utilities import (
+    ActionObject,
+    FilePath,
+    asset_path,
+    create_action_object,
+    get_properties,
+)
 
 
 class IgnoreWheelEventFilter(QObject):
@@ -766,20 +772,12 @@ class ValueListItemWidget(QWidget):
         super().__init__()
 
         self.item_widget = item_widget
-        self.delete_button = QPushButton("×", self)  # noqa: RUF001
-        self.delete_button.setFixedSize(20, 20)
-        self.delete_button.setStyleSheet("""
-            QPushButton {
-                border-radius: 5px;
-                border: 1px solid #555;
-                background-color: #440808;
-            }
-
-            QPushButton::hover {
-                background-color: #c11;
-            }
-        """)
+        self.delete_button = QPushButton(self)
+        self.delete_button.setIcon(QIcon(str(asset_path("trash.svg"))))
+        self.delete_button.setFixedSize(24, 24)
+        self.delete_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.delete_button.setToolTip("Remove item")
+        self.delete_button.setObjectName("DeleteButton")
 
         if isinstance(item_widget, PropertyForm):
             self.label_field = item_widget.source_params.get("label_field", "__name__")
@@ -797,14 +795,15 @@ class ValueListItemWidget(QWidget):
                 content_widget=self.item_widget
             )
             self.expander.layout().setContentsMargins(0, 3, 0, 10)
-            layout.addWidget(self.expander)
-            self.expander.controls_layout.insertWidget(0, self.delete_button)
+            layout.addWidget(self.expander, 1)
+            self.expander.controls_layout.addWidget(self.delete_button, stretch=0)
 
         else:
             layout = QHBoxLayout(self)
-            layout.addWidget(self.delete_button)
             if item_widget is not None:
-                layout.addWidget(item_widget, stretch=1)
+                layout.addWidget(item_widget, 1)
+
+            layout.addWidget(self.delete_button, stretch=0)
 
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -975,11 +974,13 @@ class PropertyForm(PropertyWidget):
     def __init__(self, obj: object | None) -> None:
         super().__init__()
 
+        self.property_widgets = {}
         self._setup_grid()
         self.value = obj
         self.property_changed.connect(lambda _p, _v: self.changed.emit())
 
     def _setup_grid(self) -> None:
+        self.primary_prop_layout = QVBoxLayout()
         self.form_layout = QFormLayout()
         self.form_layout.setVerticalSpacing(4)
 
@@ -987,6 +988,7 @@ class PropertyForm(PropertyWidget):
 
         gl = self.grid_layout
         gl.addLayout(self.form_layout, gl.rowCount(), 0)
+        gl.addLayout(self.primary_prop_layout, gl.rowCount(), 0)
         gl.addLayout(self.actions_container, gl.rowCount(), 0)
 
     @property
@@ -1005,8 +1007,28 @@ class PropertyForm(PropertyWidget):
 
     def _setup_form(self) -> None:
         props = get_properties(self.value.__class__)
+
         for property_name, prop in props.items():
+            params = prop.fget.parameters if hasattr(prop.fget, "parameters") else {}
+            if not params.get("primary", False):
+                continue
+
             prop_widget = PropertyWidget.from_property(prop, self.value)
+            self.property_widgets[property_name] = prop_widget
+
+            if prop_widget is not None:
+                self.primary_prop_layout.addWidget(prop_widget)
+                prop_widget.value_changed.connect(
+                    lambda v, n=property_name: self.property_changed.emit(n, v)
+                )
+
+        for property_name, prop in props.items():
+            params = prop.fget.parameters if hasattr(prop.fget, "parameters") else {}
+            if params.get("primary", False):
+                continue
+
+            prop_widget = PropertyWidget.from_property(prop, self.value)
+            self.property_widgets[property_name] = prop_widget
 
             if prop_widget is not None:
                 label = property_name.replace("_", " ").capitalize()
