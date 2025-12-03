@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from qt_property_widgets import asset_path
+from qt_property_widgets.utilities import asset_path
 
 
 class Expander(QFrame):
@@ -38,9 +38,10 @@ class Expander(QFrame):
 
         self.content_widget = content_widget
         if content_widget:
-            content_widget.setContentsMargins(25, 0, 8, 0)
+            content_widget.setContentsMargins(25, 0, 0, 0)
 
         self.label = QLabel(title)
+        self.label.setObjectName("ExpanderName")
         self.label.mousePressEvent = lambda *_: self.expander_button.click()  # type: ignore
 
         self.expander_button = QToolButton()
