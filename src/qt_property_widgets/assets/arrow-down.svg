@@ -2,9 +2,9 @@
 <!-- Created with Inkscape (http://www.inkscape.org/) -->
 
 <svg
-   width="96"
+   width="72"
    height="128"
-   viewBox="0 0 25.399999 33.866665"
+   viewBox="0 0 19.049999 33.866665"
    version="1.1"
    id="svg1"
    inkscape:version="1.4.2 (ebf0e940d0, 2025-05-08)"
@@ -57,8 +57,8 @@
      id="layer1"
      transform="translate(-6.6693217,-12.023628)">
     <path
-       style="baseline-shift:baseline;display:inline;overflow:visible;fill:#a09fa6;stroke-width:1.00012;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:stroke markers fill;enable-background:accumulate;stop-color:#000000;fill-opacity:1"
-       d="m 28.507617,29.516978 a 1.0653845,1.0653845 0 0 0 -0.31301,-0.753425 1.0653845,1.0653845 0 0 0 -1.50685,0 l -7.512229,7.512228 -7.512229,-7.512228 a 1.0653845,1.0653845 0 0 0 -1.50685,0 1.0653845,1.0653845 0 0 0 0,1.506849 l 7.653792,7.653792 c 0.743687,0.743688 1.988459,0.743688 2.732148,0 l 7.652218,-7.653792 a 1.0653845,1.0653845 0 0 0 0.31301,-0.753424 z"
+       style="baseline-shift:baseline;display:inline;overflow:visible;fill:#a09fa6;fill-opacity:1;stroke-width:1.00012;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:stroke markers fill;enable-background:accumulate;stop-color:#000000"
+       d="m 25.429293,29.420302 a 1.0653845,1.0653845 0 0 0 -0.31301,-0.753425 1.0653845,1.0653845 0 0 0 -1.50685,0 l -7.512229,7.512228 -7.5122281,-7.512228 a 1.0653845,1.0653845 0 0 0 -1.50685,0 1.0653845,1.0653845 0 0 0 0,1.506849 l 7.6537911,7.653792 c 0.743687,0.743688 1.988459,0.743688 2.732148,0 l 7.652218,-7.653792 a 1.0653845,1.0653845 0 0 0 0.31301,-0.753424 z"
        id="path1"
        inkscape:transform-center-y="4.5097317" />
   </g>

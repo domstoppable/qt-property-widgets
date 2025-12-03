@@ -981,6 +981,7 @@ class PropertyForm(PropertyWidget):
 
     def _setup_grid(self) -> None:
         self.primary_prop_layout = QVBoxLayout()
+        self.primary_prop_layout.setContentsMargins(0, 10, 0, 5)
         self.form_layout = QFormLayout()
         self.form_layout.setVerticalSpacing(4)
 
@@ -1014,9 +1015,9 @@ class PropertyForm(PropertyWidget):
                 continue
 
             prop_widget = PropertyWidget.from_property(prop, self.value)
-            self.property_widgets[property_name] = prop_widget
 
             if prop_widget is not None:
+                self.property_widgets[property_name] = prop_widget
                 self.primary_prop_layout.addWidget(prop_widget)
                 prop_widget.value_changed.connect(
                     lambda v, n=property_name: self.property_changed.emit(n, v)
@@ -1028,9 +1029,9 @@ class PropertyForm(PropertyWidget):
                 continue
 
             prop_widget = PropertyWidget.from_property(prop, self.value)
-            self.property_widgets[property_name] = prop_widget
 
             if prop_widget is not None:
+                self.property_widgets[property_name] = prop_widget
                 label = property_name.replace("_", " ").capitalize()
                 self.form_layout.addRow(label, prop_widget)
                 prop_widget.value_changed.connect(
@@ -1047,7 +1048,10 @@ class PropertyForm(PropertyWidget):
             for action_name, action_object in self.value._action_objects.items():
                 self.add_action(action_name, action_object)
 
-            self.actions_container.addStretch(1)
+        self.actions_container.addStretch(1)
+
+        if len(self.property_widgets) + self.actions_container.count() < 2:
+            self.form_layout.addWidget(QLabel("No properties to display"))
 
     def add_action(self, action_name: str, action_object: object | T.Callable) -> None:
         if not isinstance(action_object, ActionObject):

@@ -2,9 +2,9 @@
 <!-- Created with Inkscape (http://www.inkscape.org/) -->
 
 <svg
-   width="96"
+   width="72"
    height="128"
-   viewBox="0 0 25.399999 33.866665"
+   viewBox="0 0 19.049999 33.866665"
    version="1.1"
    id="svg1"
    inkscape:version="1.4.2 (ebf0e940d0, 2025-05-08)"
@@ -24,7 +24,7 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="px"
      inkscape:zoom="4.342303"
-     inkscape:cx="32.931834"
+     inkscape:cx="33.162126"
      inkscape:cy="65.287936"
      inkscape:window-width="2253"
      inkscape:window-height="1368"
@@ -57,10 +57,9 @@
      id="layer1"
      transform="translate(-6.6693217,-12.023628)">
     <path
-       style="baseline-shift:baseline;display:inline;overflow:visible;fill:#a09fa6;stroke-width:1.00012;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:stroke markers fill;enable-background:accumulate;stop-color:#000000;fill-opacity:1"
-       d="m 19.929339,19.431961 a 1.0653845,1.0653845 0 0 0 -0.753424,0.31301 1.0653845,1.0653845 0 0 0 0,1.50685 l 7.512228,7.512228 -7.512228,7.512229 a 1.0653845,1.0653845 0 0 0 0,1.50685 1.0653845,1.0653845 0 0 0 1.506848,0 l 7.653792,-7.653791 c 0.743688,-0.743688 0.743688,-1.98846 0,-2.732149 l -7.653792,-7.652217 a 1.0653845,1.0653845 0 0 0 -0.753424,-0.31301 z"
-       id="path3"
-       inkscape:transform-center-x="-4.7030845"
-       inkscape:transform-center-y="-0.1933525" />
+       style="baseline-shift:baseline;display:inline;overflow:visible;fill:#a09fa6;fill-opacity:1;stroke-width:1.00012;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:stroke markers fill;enable-background:accumulate;stop-color:#000000"
+       d="m 7.734875,19.528637 a 1.0653845,1.0653845 0 0 0 -0.753425,0.31301 1.0653845,1.0653845 0 0 0 0,1.50685 l 7.512228,7.512229 -7.512228,7.512229 a 1.0653845,1.0653845 0 0 0 0,1.50685 1.0653845,1.0653845 0 0 0 1.506849,0 l 7.653792,-7.653792 c 0.743688,-0.743687 0.743688,-1.988459 0,-2.732148 L 8.488299,19.841647 a 1.0653845,1.0653845 0 0 0 -0.753424,-0.31301 z"
+       id="path2"
+       inkscape:transform-center-x="-4.5097313" />
   </g>
 </svg>
