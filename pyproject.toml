@@ -1,5 +1,5 @@
 [project]
-name = "qt-property-widgets"
+name = "qt_property_widgets"
 description = ""
 authors = [{ name = "Dominic Canare", email = "dom@dominiccanare.com" }]
 license = "MIT"
@@ -78,3 +78,11 @@ source = "uv-dynamic-versioning"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/qt_property_widgets"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["qt_property_widgets*"]
+
+[tool.setuptools.package-data]
+"qt_property_widgets" = ["assets/**"]
+
