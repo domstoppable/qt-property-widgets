@@ -26,6 +26,23 @@ def property_params(**kwargs: T.Any) -> T.Callable:
     return decorator
 
 
+def action_params(**kwargs: T.Any) -> T.Callable:
+    def decorator(func: T.Callable) -> T.Callable:
+        if hasattr(func, "parameters"):
+            params = {
+                **func.parameters,
+                **kwargs
+            }
+        else:
+            params = kwargs.copy()
+
+        func.parameters = params  # type: ignore
+
+        return func
+
+    return decorator
+
+
 def action(func: T.Optional[T.Callable] = None, **kwargs: T.Any) -> T.Any:
     class Decorator:
         def __init__(self, func: T.Callable[..., T.Any]) -> None:

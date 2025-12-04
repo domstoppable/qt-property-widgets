@@ -33,7 +33,6 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFontDialog,
-    QFormLayout,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -276,13 +275,17 @@ class PathWidget(PropertyWidget):
         self.directory_mode = False
 
     def _on_browse_clicked(self) -> None:
+        visible_ancestor = self
+        while visible_ancestor is not None and not visible_ancestor.isVisible():
+            visible_ancestor = visible_ancestor.parentWidget()
+
         if self.directory_mode:
             value = QFileDialog.getExistingDirectory(
-                self, "Open Folder", str(self._value)
+                visible_ancestor, "Open Folder", str(self._value)
             )
         else:
             value = QFileDialog.getOpenFileName(
-                self, "Open File", str(self._value), self.filter
+                visible_ancestor, "Open File", str(self._value), self.filter
             )[0]
 
         if value == "":
@@ -290,6 +293,8 @@ class PathWidget(PropertyWidget):
 
         self.value = Path(value)
         self._emit_value_changed()
+
+        return self.value
 
     def _emit_value_changed(self) -> None:
         self.value_changed.emit(self._value)
@@ -728,7 +733,8 @@ class FlagsWidget(PropertyWidget):
     def __init__(self) -> None:
         super().__init__()
         self._flags = {}
-        self.grid_layout.setContentsMargins(5, 3, 0, 0)
+        self.grid_layout.setContentsMargins(0, 0, 0, 0)
+        self.grid_layout.setSpacing(0)
 
     def _label_lookup(self, key):
         if "label_lookup" in self.source_params:
@@ -755,8 +761,7 @@ class FlagsWidget(PropertyWidget):
             w.value = self._flags[k]
             w.value_changed.connect(lambda new_v, k=k: self._on_value_changed(k, new_v))
 
-            label = self._label_lookup(k)
-            self.grid_layout.addWidget(QLabel(label), idx, 0)
+            self.grid_layout.addWidget(QLabel(self._label_lookup(k)), idx, 0)
             self.grid_layout.addWidget(w, idx, 1)
 
         self.value_changed.emit(value)
@@ -982,7 +987,7 @@ class PropertyForm(PropertyWidget):
     def _setup_grid(self) -> None:
         self.primary_prop_layout = QVBoxLayout()
         self.primary_prop_layout.setContentsMargins(0, 10, 0, 5)
-        self.form_layout = QFormLayout()
+        self.form_layout = QGridLayout()
         self.form_layout.setVerticalSpacing(4)
 
         self.actions_container = QVBoxLayout()
@@ -1002,7 +1007,8 @@ class PropertyForm(PropertyWidget):
         self.value_changed.emit(value)
 
         while self.form_layout.count():
-            self.form_layout.removeRow(0)
+            item = self.form_layout.takeAt(0)
+            item.widget().deleteLater()
 
         self._setup_form()
 
@@ -1032,8 +1038,16 @@ class PropertyForm(PropertyWidget):
 
             if prop_widget is not None:
                 self.property_widgets[property_name] = prop_widget
-                label = property_name.replace("_", " ").capitalize()
-                self.form_layout.addRow(label, prop_widget)
+                row = self.form_layout.rowCount()
+                label = QLabel(property_name.replace("_", " ").capitalize())
+                label.setContentsMargins(0, 3, 0, 0)
+                self.form_layout.addWidget(
+                    label,
+                    row,
+                    0,
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+                )
+                self.form_layout.addWidget(prop_widget, row, 1)
                 prop_widget.value_changed.connect(
                     lambda v, n=property_name: self.property_changed.emit(n, v)
                 )
@@ -1049,17 +1063,59 @@ class PropertyForm(PropertyWidget):
                 self.add_action(action_name, action_object)
 
         self.actions_container.addStretch(1)
-
-        if len(self.property_widgets) + self.actions_container.count() < 2:
-            self.form_layout.addWidget(QLabel("No properties to display"))
+        form_count = len(self.property_widgets) + self.actions_container.count()
+        if form_count < 2 and not isinstance(self.value, ActionObject):
+            self.form_layout.addWidget(
+                QLabel("No properties to display"),
+                self.form_layout.rowCount(),
+                0
+            )
 
     def add_action(self, action_name: str, action_object: object | T.Callable) -> None:
         if not isinstance(action_object, ActionObject):
             action_object = create_action_object(action_object, self.value)
 
+        func = action_object.func
         action_prop_form = PropertyWidget.from_type(action_object.__class__)
+        action_prop_form.setContentsMargins(10, 10, 10, 0)
         action_prop_form.value = action_object
-        self.actions_container.addWidget(action_prop_form)
+        if hasattr(func, "parameters") and func.parameters.get("compact", False):
+            b = QToolButton()
+
+            if "icon" in func.parameters:
+                icon = func.parameters["icon"]
+            else:
+                icon = QIcon.fromTheme("media-playback-start")
+            b.setIcon(icon)
+
+            action_row = QWidget()
+            action_layout = QHBoxLayout()
+            action_layout.setContentsMargins(0, 0, 0, 0)
+            action_row.setLayout(action_layout)
+            action_layout.addWidget(QLabel(action_name.replace("_", " ").title()))
+            action_layout.addWidget(b)
+            self.actions_container.addWidget(action_row)
+
+            def on_button_clicked(_):
+                prop_count = len(action_prop_form.property_widgets)
+                if prop_count == 0:
+                    func(self.value)
+                else:
+                    handled = False
+                    if prop_count == 1:
+                        widget = next(iter(action_prop_form.property_widgets.values()))
+                        if isinstance(widget, PathWidget):
+                            v = widget._on_browse_clicked()
+                            if v:
+                                func(self.value, v)
+                            handled = True
+
+                    if not handled:
+                        action_prop_form.show()
+
+            b.clicked.connect(on_button_clicked)
+        else:
+            self.actions_container.addWidget(action_prop_form)
 
     def remove_action(self, action_name: str) -> None:
         # @TODO: implement remove_action
@@ -1146,9 +1202,22 @@ class ActionForm(PropertyForm):
         if self.form_layout.rowCount() == 0:
             self.grid_layout.removeWidget(self.title_label)
 
-        self.action_button = QPushButton()
+        self.action_button = QToolButton()
         self.action_button.clicked.connect(self._on_action_button_pressed)
-        self.form_layout.addRow("", self.action_button)
+        self.action_label = QLabel()
+        row = self.form_layout.rowCount()
+        self.form_layout.addWidget(
+            self.action_label,
+            row,
+            0,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+        )
+        self.form_layout.addWidget(
+            self.action_button,
+            row,
+            1,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+        )
 
     def _on_action_button_pressed(self) -> T.Any:
         return self.value()
