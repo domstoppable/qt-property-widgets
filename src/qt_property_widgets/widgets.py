@@ -354,6 +354,7 @@ class EnumComboWidget(PropertyWidget):
         super().__init__()
 
         self.widget = QComboBox()
+        self.widget.installEventFilter(WHEEL_EVENT_FILTER)
         for e in enum_class:
             self.widget.addItem(e.name, e)
 
