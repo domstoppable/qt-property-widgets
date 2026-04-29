@@ -319,6 +319,11 @@ def create_action_object(func: T.Callable, instance: T.Any) -> ActionObject:
         def __init__(self):
             super().__init__(func, instance)
 
+    if hasattr(func, "parameters"):
+        action_arg_params = func.parameters.get("arg_params", {})
+    else:
+        action_arg_params = {}
+
     for arg_name, return_type in hints.items():
         if arg_name == "return":
             continue
@@ -330,6 +335,9 @@ def create_action_object(func: T.Callable, instance: T.Any) -> ActionObject:
             obj.args[k] = v
 
         _getter.__annotations__ = {'return': return_type}
+
+        if arg_name in action_arg_params:
+            _getter.parameters = action_arg_params[arg_name]
 
         prop = property(_getter, _setter)
         setattr(ActionObjectSpec, arg_name, prop)

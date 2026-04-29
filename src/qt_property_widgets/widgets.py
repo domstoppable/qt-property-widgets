@@ -254,6 +254,9 @@ class PathWidget(PropertyWidget):
             if "directory_mode" in parameters:
                 widget.directory_mode = parameters["directory_mode"]
 
+            if "dialog_title" in parameters:
+                widget.dialog_title = parameters["dialog_title"]
+
         widget.directory_mode = True
 
         return widget
@@ -273,6 +276,7 @@ class PathWidget(PropertyWidget):
 
         self.filter = ""
         self.directory_mode = False
+        self.dialog_title = None
 
     def _on_browse_clicked(self) -> None:
         visible_ancestor = self
@@ -281,11 +285,14 @@ class PathWidget(PropertyWidget):
 
         if self.directory_mode:
             value = QFileDialog.getExistingDirectory(
-                visible_ancestor, "Open Folder", str(self._value)
+                visible_ancestor, self.dialog_title or "Open Folder", str(self._value)
             )
         else:
             value = QFileDialog.getOpenFileName(
-                visible_ancestor, "Open File", str(self._value), self.filter
+                visible_ancestor,
+                self.dialog_title or "Open File",
+                str(self._value),
+                self.filter,
             )[0]
 
         if value == "":
@@ -1072,7 +1079,11 @@ class PropertyForm(PropertyWidget):
                 0
             )
 
-    def add_action(self, action_name: str, action_object: object | T.Callable) -> None:
+    def add_action(
+        self,
+        action_name: str,
+        action_object: object | T.Callable,
+    ) -> None:
         if not isinstance(action_object, ActionObject):
             action_object = create_action_object(action_object, self.value)
 
@@ -1187,7 +1198,7 @@ class ActionForm(PropertyForm):
 
     @staticmethod
     def from_type(cls: type) -> "ActionForm":
-        return ActionForm(cls(lambda: None, None))
+        return ActionForm(cls())
 
     def __init__(self, obj: object | None) -> None:
         self.title_label = QLabel()
