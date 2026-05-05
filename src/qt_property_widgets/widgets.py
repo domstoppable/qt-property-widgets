@@ -805,7 +805,8 @@ class ValueListItemWidget(QWidget):
             layout = QVBoxLayout(self)
             self.expander = Expander(
                 title=title,
-                content_widget=self.item_widget
+                content_widget=self.item_widget,
+                expanded=item_widget.source_params.get("auto_expand", False)
             )
             self.expander.layout().setContentsMargins(0, 3, 0, 10)
             layout.addWidget(self.expander, 1)
