@@ -210,7 +210,11 @@ class PersistentPropertiesMixin:
 
         return value
 
-    def to_dict(self, include_class_name: bool = False) -> dict[str, T.Any]:
+    def to_dict(
+        self,
+        include_class_name: bool = False,
+        condition: T.Callable[[dict], bool] | None = None,
+    ) -> dict[str, T.Any]:
         properties = get_properties(self.__class__)
         state: dict[str, T.Any] = {}
 
@@ -219,17 +223,21 @@ class PersistentPropertiesMixin:
 
         for prop_name, prop in properties.items():
             if prop.fget:
-                encode_ok = True
                 has_params = hasattr(prop.fget, 'parameters')
-                if has_params:
-                    encode_ok = not prop.fget.parameters.get('dont_encode', False)
+                params = prop.fget.parameters if has_params else {}
+                encode_ok = not params.get("dont_encode", False)
+
+                if condition is not None:
+                    encode_ok = encode_ok and condition(params)
 
                 if encode_ok:
                     state[prop_name] = prop.fget(self)
 
         if hasattr(self, "_action_objects"):
             for action_name, action_object in self._action_objects.items():
-                state[action_name] = action_object.to_dict()
+                state[action_name] = action_object.to_dict(
+                    condition=condition
+                )
 
         return state
 
