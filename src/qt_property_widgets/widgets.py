@@ -125,7 +125,7 @@ class WidgetSetterProperty(property):
 
 class PropertyWidget(QWidget):
     deferred_type_widgets: T.ClassVar[list[type]] = []
-    _known_type_widgets: T.ClassVar[dict[type, type]] = {}
+    default_type_widgets: T.ClassVar[dict[type, type]] = {}
     value_changed = Signal(object)
     changed = Signal()
 
@@ -210,7 +210,7 @@ class PropertyWidget(QWidget):
     @staticmethod
     def get_widget_class_from_value_class(cls: type) -> type["PropertyWidget"]:
         candidates = []
-        for kls, widget_cls in PropertyWidget.get_known_type_widgets().items():
+        for kls, widget_cls in PropertyWidget.get_default_type_widgets().items():
             if is_subtype(cls, kls):
                 candidates.append(widget_cls)
 
@@ -230,16 +230,31 @@ class PropertyWidget(QWidget):
         raise NotImplementedError("Subclasses must implement 'from_property_impl'.")
 
     @staticmethod
-    def get_known_type_widgets() -> dict[type, type]:
+    def get_default_type_widgets() -> dict[type, type]:
         for cls in PropertyWidget.deferred_type_widgets:
             if hasattr(cls, "value") and cls.value.fget:
                 hints = T.get_type_hints(cls.value.fget)
-                if "return" in hints:
-                    PropertyWidget._known_type_widgets[hints["return"]] = cls
+                if "return" not in hints:
+                    continue
+
+                # If no widget was previously defined for this return type,
+                # set the current one as the default widget for this type.
+                return_hint_type = hints["return"]
+                if return_hint_type in PropertyWidget.default_type_widgets:
+                    continue
+
+                PropertyWidget.default_type_widgets[return_hint_type] = cls
 
         PropertyWidget.deferred_type_widgets.clear()
 
-        return PropertyWidget._known_type_widgets
+        return PropertyWidget.default_type_widgets
+    
+    @staticmethod
+    def set_default_type_widget(value_type: type, widget_class: type) -> None:
+        if not is_subtype(widget_class, PropertyWidget):
+            raise ValueError("widget_class must be a subclass of PropertyWidget")
+        
+        PropertyWidget.default_type_widgets[value_type] = widget_class
 
 
 class PathWidget(PropertyWidget):
@@ -488,29 +503,6 @@ class ColorWidget(PropertyWidget):
         self.value_changed.emit(self._color)
 
 
-class MultiLineTextWidget(PropertyWidget):
-    value_changed = Signal(str)
-
-    @staticmethod
-    def from_property_impl(prop: property) -> "MultiLineTextWidget":
-        return MultiLineTextWidget()
-
-    def __init__(self) -> None:
-        super().__init__()
-
-        self.widget = QPlainTextEdit()
-        self.widget.textChanged.connect(lambda: self.value_changed.emit(self.value))
-        self.grid_layout.addWidget(self.widget, 0, 0)
-
-    @property
-    def value(self) -> str:
-        return self.widget.toPlainText()
-
-    @value.setter
-    def value(self, value: str) -> None:
-        self.widget.setPlainText(value)
-
-
 class TextWidget(PropertyWidget):
     value_changed = Signal(str)
 
@@ -547,6 +539,29 @@ class TextWidget(PropertyWidget):
     @value.setter
     def value(self, value: str) -> None:
         self.widget.setText(value)
+
+
+class MultiLineTextWidget(PropertyWidget):
+    value_changed = Signal(str)
+
+    @staticmethod
+    def from_property_impl(prop: property) -> "MultiLineTextWidget":
+        return MultiLineTextWidget()
+
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.widget = QPlainTextEdit()
+        self.widget.textChanged.connect(lambda: self.value_changed.emit(self.value))
+        self.grid_layout.addWidget(self.widget, 0, 0)
+
+    @property
+    def value(self) -> str:
+        return self.widget.toPlainText()
+
+    @value.setter
+    def value(self, value: str) -> None:
+        self.widget.setPlainText(value)
 
 
 class TickSnappingSlider(QSlider):
