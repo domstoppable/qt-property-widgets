@@ -125,7 +125,7 @@ class WidgetSetterProperty(property):
 
 class PropertyWidget(QWidget):
     deferred_type_widgets: T.ClassVar[list[type]] = []
-    default_type_widgets: T.ClassVar[dict[type, type]] = {}
+    _default_type_widgets: T.ClassVar[dict[type, type]] = {}
     value_changed = Signal(object)
     changed = Signal()
 
@@ -240,21 +240,21 @@ class PropertyWidget(QWidget):
                 # If no widget was previously defined for this return type,
                 # set the current one as the default widget for this type.
                 return_hint_type = hints["return"]
-                if return_hint_type in PropertyWidget.default_type_widgets:
+                if return_hint_type in PropertyWidget._default_type_widgets:
                     continue
 
-                PropertyWidget.default_type_widgets[return_hint_type] = cls
+                PropertyWidget._default_type_widgets[return_hint_type] = cls
 
         PropertyWidget.deferred_type_widgets.clear()
 
-        return PropertyWidget.default_type_widgets
+        return PropertyWidget._default_type_widgets
     
     @staticmethod
     def set_default_type_widget(value_type: type, widget_class: type) -> None:
         if not is_subtype(widget_class, PropertyWidget):
             raise ValueError("widget_class must be a subclass of PropertyWidget")
         
-        PropertyWidget.default_type_widgets[value_type] = widget_class
+        PropertyWidget._default_type_widgets[value_type] = widget_class
 
 
 class PathWidget(PropertyWidget):
