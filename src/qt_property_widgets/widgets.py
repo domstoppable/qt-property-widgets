@@ -220,6 +220,10 @@ class PropertyWidget(QWidget):
         # Sort candidates by specificity of value class (most specific first)
         def sort_key(widget):
             hints = T.get_type_hints(widget.value.fget)
+
+            if hints["return"] == type:
+                return -1
+
             return -len(hints["return"].mro())
 
         candidates.sort(key=sort_key)
@@ -248,12 +252,12 @@ class PropertyWidget(QWidget):
         PropertyWidget.deferred_type_widgets.clear()
 
         return PropertyWidget._default_type_widgets
-    
+
     @staticmethod
     def set_default_type_widget(value_type: type, widget_class: type) -> None:
         if not is_subtype(widget_class, PropertyWidget):
             raise ValueError("widget_class must be a subclass of PropertyWidget")
-        
+
         PropertyWidget._default_type_widgets[value_type] = widget_class
 
 
@@ -985,6 +989,45 @@ class ValueListWidget(PropertyWidget):
 
         for v in value:
             self.add_item(v)
+
+
+class SubclassSelectorWidget(PropertyWidget):
+    value_changed = Signal(type)
+
+    @staticmethod
+    def from_property_impl(prop: property) -> "SubclassSelectorWidget":
+        hints = T.get_type_hints(prop.fget)
+        if prop.fget and hasattr(prop.fget, "parameters"):
+            parameters = prop.fget.parameters
+        else:
+            parameters = {}
+
+        base_class = parameters.get("base_class", T.get_args(hints["return"])[0])
+
+        return SubclassSelectorWidget(base_class)
+
+    def __init__(self, base_class: type) -> None:
+        super().__init__()
+
+        self.widget = QComboBox()
+        self.widget.installEventFilter(WHEEL_EVENT_FILTER)
+
+        for subclass in base_class.__subclasses__():
+            self.widget.addItem(subclass.__name__, subclass)
+
+        self.widget.currentIndexChanged.connect(
+            lambda: self.value_changed.emit(self.value)
+        )
+
+        self.grid_layout.addWidget(self.widget, 0, 0)
+
+    @property
+    def value(self) -> type:
+        return self.widget.currentData()
+
+    @value.setter
+    def value(self, value: type) -> None:
+        self.widget.setCurrentIndex(self.widget.findData(value))
 
 
 class PropertyForm(PropertyWidget):
