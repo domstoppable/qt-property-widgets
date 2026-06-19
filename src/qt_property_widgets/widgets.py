@@ -148,6 +148,9 @@ class PropertyWidget(QWidget):
     def setReadOnly(self, read_only: bool) -> None:
         self.setDisabled(read_only)
 
+    def on_bind(self, instance: T.Any) -> None:
+        pass
+
     @property
     def value(self) -> T.Any:
         raise NotImplementedError("Subclasses must override the 'value' property.")
@@ -187,6 +190,7 @@ class PropertyWidget(QWidget):
         w.source_property = actual_prop
         w.source_params = params
         if instance is not None:
+            w.on_bind(instance)
             w.value = actual_prop.fget(instance)
             if not isinstance(actual_prop, WidgetSetterProperty):
                 existing_props = get_properties(instance.__class__)
@@ -398,6 +402,89 @@ class EnumComboWidget(PropertyWidget):
     @value.setter
     def value(self, value: Enum) -> None:
         self.widget.setCurrentIndex(self.widget.findData(value))
+
+
+class DynamicComboWidget(PropertyWidget):
+    value_changed = Signal(object)
+
+    @staticmethod
+    def from_property_impl(prop: property) -> "DynamicComboWidget":
+        widget = DynamicComboWidget()
+
+        params = getattr(prop.fget, "parameters", {})
+        widget._options_source = params.get("options_source")
+        widget._options_changed_signal = params.get("options_changed_signal")
+
+        return widget
+
+    def __init__(self) -> None:
+        super().__init__()
+
+        self._options_source: T.Iterable[T.Any] | T.Callable[..., T.Iterable[T.Any]] | str | None = None
+        self._options_changed_signal: T.Optional[str] | None = None
+        self._instance: T.Any = None
+
+        self.widget = QComboBox()
+        self.widget.installEventFilter(WHEEL_EVENT_FILTER)
+        self.widget.currentIndexChanged.connect(
+            lambda: self.value_changed.emit(self.value)
+        )
+
+        self.grid_layout.addWidget(self.widget, 0, 0)
+
+    def on_bind(self, instance: T.Any) -> None:
+        self._instance = instance
+
+        if self._options_changed_signal:
+            signal = getattr(instance, self._options_changed_signal, None)
+            if isinstance(signal, SignalInstance):
+                signal.connect(self.refresh_options)
+
+        self.refresh_options()
+
+    def _resolve_options(self) -> T.Iterable[T.Any]:
+        spec = self._options_source
+        if isinstance(spec, str):
+            spec = getattr(self._instance, spec, None)
+
+        if callable(spec):
+            try:
+                return spec(self._instance)
+            except TypeError:
+                return spec()
+
+        return spec or []
+
+    def refresh_options(self) -> None:
+        previous = self.value
+
+        self.widget.blockSignals(True)
+        self.widget.clear()
+        for option in self._resolve_options():
+            if isinstance(option, tuple):
+                label, data = option
+            else:
+                label, data = str(option), option
+
+            self.widget.addItem(label, data)
+
+        index = self.widget.findData(previous)
+        if index >= 0:
+            self.widget.setCurrentIndex(index)
+        self.widget.blockSignals(False)
+
+        if self.value != previous:
+            self.value_changed.emit(self.value)
+
+    @property
+    def value(self) -> T.Any:
+        return self.widget.currentData()
+
+    @value.setter
+    def value(self, value: T.Any) -> None:
+        index = self.widget.findData(value)
+        if index >= 0:
+            self.widget.setCurrentIndex(index)
 
 
 class FontWidget(PropertyWidget):
