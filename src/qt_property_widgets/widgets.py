@@ -1091,7 +1091,13 @@ class SubclassSelectorWidget(PropertyWidget):
 
         base_class = parameters.get("base_class", T.get_args(hints["return"])[0])
 
-        return SubclassSelectorWidget(base_class)
+        w = SubclassSelectorWidget(base_class)
+
+        if parameters.get("allow_none", False):
+            label = parameters.get("none_label", "")
+            w.widget.insertItem(0, label, None)
+
+        return w
 
     def __init__(self, base_class: type) -> None:
         super().__init__()
