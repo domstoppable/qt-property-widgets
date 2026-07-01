@@ -152,7 +152,15 @@ class PersistentPropertiesMixin:
     def type_convert(value: T.Any, target_type: type) -> T.Any:
         target_class = T.get_origin(target_type) or target_type
         if not isinstance(value, target_class):
-            if issubclass(target_class, Path):
+            if target_class is type:
+                if value is None or value == "":
+                    value = None
+                else:
+                    module_name, class_name = value.rsplit(".", 1)
+                    module = __import__(module_name, fromlist=[class_name])
+                    value = getattr(module, class_name)
+
+            elif issubclass(target_class, Path):
                 if value is not None:
                     value = Path(value)
 
