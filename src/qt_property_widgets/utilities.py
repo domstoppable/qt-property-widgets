@@ -1,6 +1,7 @@
 import inspect
 import json
 import typing as T
+import weakref
 from enum import Enum
 from importlib import resources
 from pathlib import Path
@@ -110,7 +111,14 @@ class PersistentPropertiesMixin:
                 self._action_objects[action_name] = action_object
 
                 if hasattr(self, "changed") and isinstance(self.changed, SignalInstance):
-                    action_object.changed.connect(self.changed.emit)
+                    weak_self = weakref.ref(self)
+
+                    def _on_action_changed(weak_self: T.Callable = weak_self) -> None:
+                        owner = weak_self()
+                        if owner is not None:
+                            owner.changed.emit()
+
+                    action_object.changed.connect(_on_action_changed)
 
     def __setstate__(self, state: dict) -> None:
         self._setting_state = True
@@ -308,13 +316,14 @@ class ActionObject(PersistentPropertiesMixin, QObject):
         super().__init__()
 
         self.func = func
-        self.instance = instance
         self.args: dict[str, T.Any] = {}
+
+        self._instance_ref = weakref.ref(instance) if instance is not None else None
 
         signature = inspect.signature(func)
         for param_name, param in signature.parameters.items():
             if param_name == "self":
-                self.args[param_name] = instance
+                continue
 
             elif param.default is inspect.Parameter.empty:
                 self.args[param_name] = None
@@ -323,10 +332,11 @@ class ActionObject(PersistentPropertiesMixin, QObject):
                 self.args[param_name] = param.default
 
     def __call__(self) -> None:
-        if hasattr(self.func, "__self__") and self.func.__self__ is not None:
-            args = {k: v for k, v in self.args.items() if k != "self"}
-        else:
-            args = self.args
+        args = dict(self.args)
+        if not (hasattr(self.func, "__self__") and self.func.__self__ is not None):
+            instance = self._instance_ref() if self._instance_ref is not None else None
+            if instance is not None:
+                args["self"] = instance
 
         return self.func(**args)
 
@@ -335,7 +345,7 @@ def create_action_object(func: T.Callable, instance: T.Any) -> ActionObject:
     hints = T.get_type_hints(func)
 
     class ActionObjectSpec(ActionObject):
-        def __init__(self):
+        def __init__(self, instance=None):
             super().__init__(func, instance)
 
     if hasattr(func, "parameters"):
@@ -361,7 +371,7 @@ def create_action_object(func: T.Callable, instance: T.Any) -> ActionObject:
         prop = property(_getter, _setter)
         setattr(ActionObjectSpec, arg_name, prop)
 
-    return ActionObjectSpec()
+    return ActionObjectSpec(instance)
 
 
 def asset_path(resource: str) -> Path:
