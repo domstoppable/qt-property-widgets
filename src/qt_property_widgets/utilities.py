@@ -2,6 +2,7 @@ import inspect
 import json
 import typing as T
 import weakref
+from collections.abc import Iterable, Mapping
 from enum import Enum
 from importlib import resources
 from pathlib import Path
@@ -249,11 +250,12 @@ class PersistentPropertiesMixin:
 
                 if encode_ok:
                     v = prop.fget(self)
-                    if recursive and isinstance(v, PersistentPropertiesMixin):
-                        v = v.to_dict(
+                    if recursive:
+                        v = self._dictify_value(
+                            v,
                             include_class_name=include_class_name,
                             condition=condition,
-                            recursive=True
+                            recursive=True,
                         )
 
                     state[prop_name] = v
@@ -265,6 +267,44 @@ class PersistentPropertiesMixin:
                 )
 
         return state
+
+    def _dictify_value(
+        self,
+        value: T.Any,
+        include_class_name: bool,
+        condition: T.Callable[[dict], bool] | None,
+        recursive: bool,
+    ) -> T.Any:
+        if isinstance(value, PersistentPropertiesMixin):
+            return value.to_dict(
+                include_class_name=include_class_name,
+                condition=condition,
+                recursive=recursive,
+            )
+
+        if isinstance(value, Mapping):
+            return {
+                k: self._dictify_value(
+                    v,
+                    include_class_name=include_class_name,
+                    condition=condition,
+                    recursive=recursive,
+                )
+                for k, v in value.items()
+            }
+
+        if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
+            return [
+                self._dictify_value(
+                    item,
+                    include_class_name=include_class_name,
+                    condition=condition,
+                    recursive=recursive,
+                )
+                for item in value
+            ]
+
+        return value
 
     @classmethod
     def from_dict(
