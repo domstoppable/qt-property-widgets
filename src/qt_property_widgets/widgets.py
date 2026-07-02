@@ -1,5 +1,6 @@
 import inspect
 import typing as T
+import weakref
 from collections.abc import Mapping
 from enum import Enum
 from pathlib import Path
@@ -77,7 +78,9 @@ class WidgetSetterProperty(property):
             doc=prop.__doc__,
         )
         self.source_prop = prop
-        self.binds: dict[T.Any, list[PropertyWidget]] = {}
+        self.binds: weakref.WeakKeyDictionary[T.Any, list[PropertyWidget]] = (
+            weakref.WeakKeyDictionary()
+        )
 
     def wrapped_setter(self, obj: T.Any, value: T.Any) -> None:  # noqa: C901
         def check_lists(a: list, b: list) -> bool:
