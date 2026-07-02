@@ -2,6 +2,7 @@ import inspect
 import json
 import typing as T
 import weakref
+from collections.abc import Iterable, Mapping
 from enum import Enum
 from importlib import resources
 from pathlib import Path
@@ -230,6 +231,7 @@ class PersistentPropertiesMixin:
         self,
         include_class_name: bool = False,
         condition: T.Callable[[dict], bool] | None = None,
+        recursive: bool = False,
     ) -> dict[str, T.Any]:
         properties = get_properties(self.__class__)
         state: dict[str, T.Any] = {}
@@ -247,7 +249,16 @@ class PersistentPropertiesMixin:
                     encode_ok = encode_ok and condition(params)
 
                 if encode_ok:
-                    state[prop_name] = prop.fget(self)
+                    v = prop.fget(self)
+                    if recursive:
+                        v = self._dictify_value(
+                            v,
+                            include_class_name=include_class_name,
+                            condition=condition,
+                            recursive=True,
+                        )
+
+                    state[prop_name] = v
 
         if hasattr(self, "_action_objects"):
             for action_name, action_object in self._action_objects.items():
@@ -256,6 +267,44 @@ class PersistentPropertiesMixin:
                 )
 
         return state
+
+    def _dictify_value(
+        self,
+        value: T.Any,
+        include_class_name: bool,
+        condition: T.Callable[[dict], bool] | None,
+        recursive: bool,
+    ) -> T.Any:
+        if isinstance(value, PersistentPropertiesMixin):
+            return value.to_dict(
+                include_class_name=include_class_name,
+                condition=condition,
+                recursive=recursive,
+            )
+
+        if isinstance(value, Mapping):
+            return {
+                k: self._dictify_value(
+                    v,
+                    include_class_name=include_class_name,
+                    condition=condition,
+                    recursive=recursive,
+                )
+                for k, v in value.items()
+            }
+
+        if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
+            return [
+                self._dictify_value(
+                    item,
+                    include_class_name=include_class_name,
+                    condition=condition,
+                    recursive=recursive,
+                )
+                for item in value
+            ]
+
+        return value
 
     @classmethod
     def from_dict(
