@@ -230,6 +230,7 @@ class PersistentPropertiesMixin:
         self,
         include_class_name: bool = False,
         condition: T.Callable[[dict], bool] | None = None,
+        recursive: bool = False,
     ) -> dict[str, T.Any]:
         properties = get_properties(self.__class__)
         state: dict[str, T.Any] = {}
@@ -247,7 +248,15 @@ class PersistentPropertiesMixin:
                     encode_ok = encode_ok and condition(params)
 
                 if encode_ok:
-                    state[prop_name] = prop.fget(self)
+                    v = prop.fget(self)
+                    if recursive and isinstance(v, PersistentPropertiesMixin):
+                        v = v.to_dict(
+                            include_class_name=include_class_name,
+                            condition=condition,
+                            recursive=True
+                        )
+
+                    state[prop_name] = v
 
         if hasattr(self, "_action_objects"):
             for action_name, action_object in self._action_objects.items():
