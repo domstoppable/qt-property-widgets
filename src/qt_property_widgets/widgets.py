@@ -1,4 +1,5 @@
 import inspect
+import types
 import typing as T
 import weakref
 from collections.abc import Mapping
@@ -187,6 +188,9 @@ class PropertyWidget(QWidget):
         if widget_class is None:
             hints = T.get_type_hints(actual_prop.fget)
             value_type = hints.get("return", str)
+            while isinstance(value_type, types.UnionType) or T.get_origin(value_type) is T.Union:
+                value_type = T.get_args(value_type)[0]
+
             widget_class = PropertyWidget.get_widget_class_from_value_class(value_type)
 
         w: PropertyWidget = widget_class.from_property_impl(actual_prop)
