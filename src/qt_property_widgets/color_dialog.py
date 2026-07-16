@@ -248,7 +248,7 @@ class ColorDialog(QDialog):
         self._add_favorite_button = QPushButton("Add Favorite")
         self._add_favorite_button.clicked.connect(self._add_favorite)
         hex_layout.addWidget(self._add_favorite_button)
-        hex_layout.addStretch()
+        hex_layout.addStretch(True)
         layout.addLayout(hex_layout)
 
         self._favorites_container = QWidget()
