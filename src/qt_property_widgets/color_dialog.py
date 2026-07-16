@@ -1,13 +1,15 @@
 import math
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QColorConstants, QPainter
+from PySide6.QtGui import QColor, QColorConstants, QIcon, QImage, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QSlider,
     QSpinBox,
     QTabWidget,
@@ -134,18 +136,72 @@ class ChannelSlider(QWidget):
         )
 
 
+class FavoriteSwatch(QPushButton):
+    remove_requested = Signal(QColor)
+
+    def __init__(self, color: QColor, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._color = color
+        self.setFlat(True)
+
+        size = 24
+        self.setFixedSize(size, size)
+        color_text = f"{color.name(QColor.NameFormat.HexRgb)}, alpha={color.alpha()}"
+        self.setToolTip(f"{color_text}\n(Right-click to remove)")
+
+        icon_image = QImage(size, size, QImage.Format.Format_RGB32)
+        painter = QPainter(icon_image)
+        cell = size // 3
+        for y in range(0, size, cell):
+            for x in range(0, size, cell):
+                if (x // cell + y // cell) % 2 == 0:
+                    painter.fillRect(x, y, cell, cell, QColorConstants.LightGray)
+                else:
+                    painter.fillRect(x, y, cell, cell, QColorConstants.DarkGray)
+
+        painter.fillRect(0, 0, 24, 24, self._color)
+        painter.end()
+
+        self.setIcon(QIcon(QPixmap.fromImage(icon_image)))
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.RightButton:
+            self.remove_requested.emit(self._color)
+
+        super().mousePressEvent(event)
+
+
 class ColorDialog(QDialog):
+    _favorites: list[QColor] = [  # ruff:ignore[mutable-class-default]
+        QColorConstants.Red,
+        QColorConstants.Green,
+        QColorConstants.Blue,
+        QColorConstants.Cyan,
+        QColorConstants.Magenta,
+        QColorConstants.Yellow,
+        QColorConstants.White,
+        QColorConstants.LightGray,
+        QColorConstants.Gray,
+        QColorConstants.DarkGray,
+        QColorConstants.DarkRed,
+        QColorConstants.DarkGreen,
+        QColorConstants.DarkBlue,
+        QColorConstants.DarkCyan,
+        QColorConstants.DarkMagenta,
+        QColorConstants.DarkYellow,
+        QColorConstants.Black,
+    ]
+
     def __init__(
         self,
         initial_color: QColor | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+
         self.setWindowTitle("Select Color")
         self._color: QColor = initial_color or QColor(255, 255, 255, 255)
         self._updating = False
-
-        self.resize(400, 300)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -155,7 +211,6 @@ class ColorDialog(QDialog):
 
         self._rgb_container = QWidget()
         rgb_layout = QVBoxLayout(self._rgb_container)
-        rgb_layout.setContentsMargins(0, 0, 0, 0)
         rgb_layout.setSpacing(4)
 
         self._r_slider = ChannelSlider("R", 0, 255)
@@ -169,7 +224,6 @@ class ColorDialog(QDialog):
 
         self._hsv_container = QWidget()
         hsv_layout = QVBoxLayout(self._hsv_container)
-        hsv_layout.setContentsMargins(0, 0, 0, 0)
         hsv_layout.setSpacing(4)
 
         self._h_slider = ChannelSlider("H", 0, 359)
@@ -191,8 +245,17 @@ class ColorDialog(QDialog):
         self._hex_edit.setFixedWidth(120)
         hex_layout.addWidget(hex_label)
         hex_layout.addWidget(self._hex_edit)
+        self._add_favorite_button = QPushButton("Add Favorite")
+        self._add_favorite_button.clicked.connect(self._add_favorite)
+        hex_layout.addWidget(self._add_favorite_button)
         hex_layout.addStretch()
         layout.addLayout(hex_layout)
+
+        self._favorites_container = QWidget()
+        self._favorites_layout = QGridLayout(self._favorites_container)
+        self._favorites_layout.setContentsMargins(0, 0, 0, 0)
+        self._favorites_layout.setSpacing(4)
+        layout.addWidget(self._favorites_container)
 
         self._button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok
@@ -216,6 +279,7 @@ class ColorDialog(QDialog):
 
         self._h_slider.set_rainbow_gradient()
         self._sync_from_color()
+        self._refresh_favorites()
 
     @property
     def selected_color(self) -> QColor:
@@ -328,3 +392,34 @@ class ColorDialog(QDialog):
             color.setAlpha(self._a_slider.value)
             self._update_color(color)
 
+    @staticmethod
+    def add_favorite(color: QColor) -> None:
+        ColorDialog._favorites.insert(0, QColor(color))
+        if len(ColorDialog._favorites) > 20:
+            ColorDialog._favorites.pop()
+
+    def _add_favorite(self) -> None:
+        ColorDialog.add_favorite(self._color)
+        self._refresh_favorites()
+
+    def _refresh_favorites(self) -> None:
+        while self._favorites_layout.count():
+            item = self._favorites_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        for i, color in enumerate(ColorDialog._favorites):
+            swatch = FavoriteSwatch(color)
+            swatch.clicked.connect(lambda _, c=color: self._apply_favorite(c))
+            swatch.remove_requested.connect(self._remove_favorite)
+            row = i // 10
+            col = i % 10
+            self._favorites_layout.addWidget(swatch, row, col)
+
+    def _apply_favorite(self, color: QColor) -> None:
+        self._update_color(color)
+
+    def _remove_favorite(self, color: QColor) -> None:
+        ColorDialog._favorites.remove(color)
+        self._refresh_favorites()
