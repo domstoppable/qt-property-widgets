@@ -28,7 +28,6 @@ from PySide6.QtGui import (
     QWheelEvent,
 )
 from PySide6.QtWidgets import (
-    QColorDialog,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -48,6 +47,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .color_dialog import ColorDialog
 from .expander import Expander
 from .utilities import (
     ActionObject,
@@ -558,10 +558,11 @@ class ColorWidget(PropertyWidget):
         self._setup_button()
 
     def _on_clicked(self) -> None:
-        show_alpha = QColorDialog.ColorDialogOption.ShowAlphaChannel
-        color = QColorDialog.getColor(self._color, self, options=show_alpha)
-        if color.isValid():
-            self.value = color
+        dialog = ColorDialog(self._color, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            color = dialog.selected_color
+            if color.isValid():
+                self.value = color
 
     def _setup_button(self) -> None:
         if self._color is None:
