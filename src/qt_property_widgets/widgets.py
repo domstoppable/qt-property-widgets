@@ -1207,7 +1207,8 @@ class PropertyForm(PropertyWidget):
             if prop_widget is not None:
                 self.property_widgets[property_name] = prop_widget
                 row = self.form_layout.rowCount()
-                label = QLabel(property_name.replace("_", " ").capitalize())
+                label_text = params.get("label", property_name.replace("_", " ").capitalize())
+                label = QLabel(label_text)
                 label.setContentsMargins(0, 3, 0, 0)
                 self.form_layout.addWidget(
                     label,
