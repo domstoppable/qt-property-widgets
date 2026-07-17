@@ -52,6 +52,7 @@ from .expander import Expander
 from .utilities import (
     ActionObject,
     FilePath,
+    all_subclasses,
     asset_path,
     create_action_object,
     get_properties,
@@ -980,13 +981,12 @@ class ValueListWidget(PropertyWidget):
         super().showEvent(show_event)
 
     def on_add_button_clicked(self) -> None:
-        if self.source_params.get("use_subclass_selector", False) and hasattr(
-            self.item_class, "_known_types"
-        ):
-            if len(self.item_class._known_types) == 1:
-                v = self.item_class._known_types[0]()
+        if self.source_params.get("use_subclass_selector", False):
+            subclasses = all_subclasses(self.item_class)
+            if len(subclasses) == 1:
+                v = subclasses[0]()
 
-            else:
+            elif len(subclasses) > 1:
                 dialog = QDialog(self)
                 dialog.setWindowTitle("Select Type")
 
@@ -997,7 +997,7 @@ class ValueListWidget(PropertyWidget):
 
                 item_params = self.source_params.get("item_params", {})
                 label_field = item_params.get("label_field", "__name__")
-                for subtype in self.item_class._known_types:
+                for subtype in subclasses:
                     subtype_name = getattr(subtype, label_field)
                     combo_box.addItem(subtype_name, subtype)
 
@@ -1018,6 +1018,8 @@ class ValueListWidget(PropertyWidget):
                     v = selected_class()
                 else:
                     return
+            else:
+                v = self.item_class()
         else:
             v = self.item_class()
 
@@ -1113,7 +1115,7 @@ class SubclassSelectorWidget(PropertyWidget):
         self.widget = QComboBox()
         self.widget.installEventFilter(WHEEL_EVENT_FILTER)
 
-        for subclass in base_class.__subclasses__():
+        for subclass in all_subclasses(base_class):
             self.widget.addItem(subclass.__name__, subclass)
 
         self.widget.currentIndexChanged.connect(
