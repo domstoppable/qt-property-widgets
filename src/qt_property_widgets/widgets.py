@@ -1180,10 +1180,17 @@ class PropertyForm(PropertyWidget):
             item = self.form_layout.takeAt(0)
             item.widget().deleteLater()
 
+        while self.primary_prop_layout.count():
+            item = self.primary_prop_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
         self._setup_form()
 
     def _setup_form(self) -> None:
         props = get_properties(self.value.__class__)
+        self.property_widgets = {}
 
         for property_name, prop in props.items():
             params = prop.fget.parameters if hasattr(prop.fget, "parameters") else {}
