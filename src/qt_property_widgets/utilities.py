@@ -77,6 +77,15 @@ def action(func: T.Optional[T.Callable] = None, **kwargs: T.Any) -> T.Any:
     return Decorator(func)
 
 
+def all_subclasses(cls: type) -> list[type]:
+    result: list[type] = []
+    for subclass in cls.__subclasses__():
+        result.append(subclass)
+        result.extend(all_subclasses(subclass))
+
+    return result
+
+
 def get_class_properties(cls: type) -> dict[str, property]:
     properties = {}
     for key, value in cls.__dict__.items():
@@ -310,11 +319,11 @@ class PersistentPropertiesMixin:
     def from_dict(
         cls: type["PersistentPropertiesMixin"], state: dict[str, T.Any]
     ) -> T.Any:
-        if "__class__" in state and hasattr(cls, "_known_types"):
+        if "__class__" in state:
             type_name = state["__class__"]
-            for known_type in cls._known_types:
-                if known_type.__name__ == type_name:
-                    cls = known_type
+            for subclass in all_subclasses(cls):
+                if subclass.__name__ == type_name:
+                    cls = subclass
                     break
 
         instance = cls()
