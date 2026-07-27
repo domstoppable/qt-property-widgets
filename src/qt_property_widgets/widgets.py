@@ -1279,15 +1279,16 @@ class PropertyForm(PropertyWidget):
             def on_button_clicked(_):
                 prop_count = len(action_prop_form.property_widgets)
                 if prop_count == 0:
-                    func(self.value)
+                    action_object()
                 else:
                     handled = False
                     if prop_count == 1:
-                        widget = next(iter(action_prop_form.property_widgets.values()))
+                        arg_name, widget = next(iter(action_prop_form.property_widgets.items()))
                         if isinstance(widget, PathWidget):
                             v = widget._on_browse_clicked()
                             if v:
-                                func(self.value, v)
+                                action_object.args[arg_name] = v
+                                action_object()
                             handled = True
 
                     if not handled:

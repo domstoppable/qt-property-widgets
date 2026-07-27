@@ -370,6 +370,7 @@ class ActionObject(PersistentPropertiesMixin, QObject):
         self._instance_ref = weakref.ref(instance) if instance is not None else None
 
         signature = inspect.signature(func)
+        self._takes_self = "self" in signature.parameters
         for param_name, param in signature.parameters.items():
             if param_name == "self":
                 continue
@@ -382,7 +383,7 @@ class ActionObject(PersistentPropertiesMixin, QObject):
 
     def __call__(self) -> None:
         args = dict(self.args)
-        if not (hasattr(self.func, "__self__") and self.func.__self__ is not None):
+        if self._takes_self:
             instance = self._instance_ref() if self._instance_ref is not None else None
             if instance is not None:
                 args["self"] = instance
