@@ -163,7 +163,9 @@ class PropertyWidget(QWidget):
             if isinstance(signal, SignalInstance):
                 signal.connect(self.refresh_visibility)
 
-        self.refresh_visibility()
+        if self.source_params.get("visibility_source") is not None or visibility_changed_signal:
+            # don't trigger refresh if visibility params are not configured
+            self.refresh_visibility()
 
     def _resolve_visibility(self) -> bool:
         spec = self.source_params.get("visibility_source")
