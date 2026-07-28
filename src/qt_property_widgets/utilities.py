@@ -8,7 +8,7 @@ from importlib import resources
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, SignalInstance
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor, QFont, QKeySequence
 
 
 def property_params(**kwargs: T.Any) -> T.Callable:
@@ -185,6 +185,9 @@ class PersistentPropertiesMixin:
 
                 value = font
 
+            elif issubclass(target_class, QKeySequence):
+                value = QKeySequence(value)
+
             elif isinstance(value, dict) and hasattr(target_class, "from_dict"):
                 value = target_class.from_dict(value)
 
@@ -351,6 +354,9 @@ class ComplexEncoder(json.JSONEncoder):
                 "underline": obj.underline(),
                 "strikeOut": obj.strikeOut(),
             }
+
+        elif isinstance(obj, QKeySequence):
+            return obj.toString()
 
         elif isinstance(obj, type):
             return f"{obj.__module__}.{obj.__qualname__}"
