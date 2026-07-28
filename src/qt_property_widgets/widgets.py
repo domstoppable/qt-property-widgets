@@ -20,6 +20,7 @@ from PySide6.QtGui import (
     QFont,
     QIcon,
     QImage,
+    QKeySequence,
     QMouseEvent,
     QPainter,
     QPainterPath,
@@ -28,7 +29,6 @@ from PySide6.QtGui import (
     QWheelEvent,
 )
 from PySide6.QtWidgets import (
-    QColorDialog,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
     QFontDialog,
     QGridLayout,
     QHBoxLayout,
+    QKeySequenceEdit,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
@@ -48,6 +49,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .color_dialog import ColorDialog
 from .expander import Expander
 from .utilities import (
     ActionObject,
@@ -563,6 +565,57 @@ class FontWidget(PropertyWidget):
         self._update_text()
 
 
+class KeySequenceWidget(PropertyWidget):
+    value_changed = Signal(QKeySequence)
+
+    @staticmethod
+    def from_property_impl(prop: property) -> "KeySequenceWidget":
+        return KeySequenceWidget()
+
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.record_button = QPushButton("Click to record")
+        self.record_button.clicked.connect(lambda: self._on_record_clicked())
+
+        self.widget = QKeySequenceEdit()
+        self.widget.setClearButtonEnabled(True)
+        self.widget.editingFinished.connect(self._on_finished_editing)
+
+        self.grid_layout.addWidget(self.record_button, 0, 0)
+        self.grid_layout.addWidget(self.widget, 0, 1)
+
+        self.widget.hide()
+        self._read_only = False
+
+    def _on_finished_editing(self):
+        self.record_button.show()
+        self.widget.hide()
+        seq = self.widget.keySequence()
+        self.value = seq
+        self.value_changed.emit(seq)
+
+    def setReadOnly(self, read_only: bool) -> None:
+        self._read_only = read_only
+        self.record_button.setEnabled(not read_only)
+        self.record_button.show()
+        self.widget.hide()
+
+    def _on_record_clicked(self) -> None:
+        self.record_button.hide()
+        self.widget.show()
+        self.widget.setFocus()
+
+    @property
+    def value(self) -> QKeySequence:
+        return self.widget.keySequence()
+
+    @value.setter
+    def value(self, value: QKeySequence) -> None:
+        self.record_button.setText(value.toString() if not value.isEmpty() else "Click to record")
+        self.widget.setKeySequence(value)
+
+
 class ColorWidget(PropertyWidget):
     value_changed = Signal(QColor)
 
@@ -590,10 +643,11 @@ class ColorWidget(PropertyWidget):
         self._setup_button()
 
     def _on_clicked(self) -> None:
-        show_alpha = QColorDialog.ColorDialogOption.ShowAlphaChannel
-        color = QColorDialog.getColor(self._color, self, options=show_alpha)
-        if color.isValid():
-            self.value = color
+        dialog = ColorDialog(self._color, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            color = dialog.selected_color
+            if color.isValid():
+                self.value = color
 
     def _setup_button(self) -> None:
         if self._color is None:
@@ -1211,10 +1265,17 @@ class PropertyForm(PropertyWidget):
             item = self.form_layout.takeAt(0)
             item.widget().deleteLater()
 
+        while self.primary_prop_layout.count():
+            item = self.primary_prop_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
         self._setup_form()
 
     def _setup_form(self) -> None:
         props = get_properties(self.value.__class__)
+        self.property_widgets = {}
 
         for property_name, prop in props.items():
             params = prop.fget.parameters if hasattr(prop.fget, "parameters") else {}
@@ -1240,7 +1301,8 @@ class PropertyForm(PropertyWidget):
             if prop_widget is not None:
                 self.property_widgets[property_name] = prop_widget
                 row = self.form_layout.rowCount()
-                label = QLabel(property_name.replace("_", " ").capitalize())
+                label_text = params.get("label", property_name.replace("_", " ").capitalize())
+                label = QLabel(label_text)
                 label.setContentsMargins(0, 3, 0, 0)
                 self.form_layout.addWidget(
                     label,
@@ -1309,15 +1371,16 @@ class PropertyForm(PropertyWidget):
             def on_button_clicked(_):
                 prop_count = len(action_prop_form.property_widgets)
                 if prop_count == 0:
-                    func(self.value)
+                    action_object()
                 else:
                     handled = False
                     if prop_count == 1:
-                        widget = next(iter(action_prop_form.property_widgets.values()))
+                        arg_name, widget = next(iter(action_prop_form.property_widgets.items()))
                         if isinstance(widget, PathWidget):
                             v = widget._on_browse_clicked()
                             if v:
-                                func(self.value, v)
+                                action_object.args[arg_name] = v
+                                action_object()
                             handled = True
 
                     if not handled:
