@@ -20,6 +20,7 @@ from PySide6.QtGui import (
     QFont,
     QIcon,
     QImage,
+    QKeySequence,
     QMouseEvent,
     QPainter,
     QPainterPath,
@@ -36,6 +37,7 @@ from PySide6.QtWidgets import (
     QFontDialog,
     QGridLayout,
     QHBoxLayout,
+    QKeySequenceEdit,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
@@ -530,6 +532,57 @@ class FontWidget(PropertyWidget):
     def value(self, value: QFont) -> None:
         self._font = value
         self._update_text()
+
+
+class KeySequenceWidget(PropertyWidget):
+    value_changed = Signal(QKeySequence)
+
+    @staticmethod
+    def from_property_impl(prop: property) -> "KeySequenceWidget":
+        return KeySequenceWidget()
+
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.record_button = QPushButton("Click to record")
+        self.record_button.clicked.connect(lambda: self._on_record_clicked())
+
+        self.widget = QKeySequenceEdit()
+        self.widget.setClearButtonEnabled(True)
+        self.widget.editingFinished.connect(self._on_finished_editing)
+
+        self.grid_layout.addWidget(self.record_button, 0, 0)
+        self.grid_layout.addWidget(self.widget, 0, 1)
+
+        self.widget.hide()
+        self._read_only = False
+
+    def _on_finished_editing(self):
+        self.record_button.show()
+        self.widget.hide()
+        seq = self.widget.keySequence()
+        self.value = seq
+        self.value_changed.emit(seq)
+
+    def setReadOnly(self, read_only: bool) -> None:
+        self._read_only = read_only
+        self.record_button.setEnabled(not read_only)
+        self.record_button.show()
+        self.widget.hide()
+
+    def _on_record_clicked(self) -> None:
+        self.record_button.hide()
+        self.widget.show()
+        self.widget.setFocus()
+
+    @property
+    def value(self) -> QKeySequence:
+        return self.widget.keySequence()
+
+    @value.setter
+    def value(self, value: QKeySequence) -> None:
+        self.record_button.setText(value.toString() if not value.isEmpty() else "Click to record")
+        self.widget.setKeySequence(value)
 
 
 class ColorWidget(PropertyWidget):
@@ -1281,15 +1334,16 @@ class PropertyForm(PropertyWidget):
             def on_button_clicked(_):
                 prop_count = len(action_prop_form.property_widgets)
                 if prop_count == 0:
-                    func(self.value)
+                    action_object()
                 else:
                     handled = False
                     if prop_count == 1:
-                        widget = next(iter(action_prop_form.property_widgets.values()))
+                        arg_name, widget = next(iter(action_prop_form.property_widgets.items()))
                         if isinstance(widget, PathWidget):
                             v = widget._on_browse_clicked()
                             if v:
-                                func(self.value, v)
+                                action_object.args[arg_name] = v
+                                action_object()
                             handled = True
 
                     if not handled:

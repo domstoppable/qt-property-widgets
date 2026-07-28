@@ -8,7 +8,7 @@ from importlib import resources
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, SignalInstance
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor, QFont, QKeySequence
 
 
 def property_params(**kwargs: T.Any) -> T.Callable:
@@ -194,6 +194,9 @@ class PersistentPropertiesMixin:
 
                 value = font
 
+            elif issubclass(target_class, QKeySequence):
+                value = QKeySequence(value)
+
             elif isinstance(value, dict) and hasattr(target_class, "from_dict"):
                 value = target_class.from_dict(value)
 
@@ -361,6 +364,9 @@ class ComplexEncoder(json.JSONEncoder):
                 "strikeOut": obj.strikeOut(),
             }
 
+        elif isinstance(obj, QKeySequence):
+            return obj.toString()
+
         elif isinstance(obj, type):
             return f"{obj.__module__}.{obj.__qualname__}"
 
@@ -379,6 +385,7 @@ class ActionObject(PersistentPropertiesMixin, QObject):
         self._instance_ref = weakref.ref(instance) if instance is not None else None
 
         signature = inspect.signature(func)
+        self._takes_self = "self" in signature.parameters
         for param_name, param in signature.parameters.items():
             if param_name == "self":
                 continue
@@ -391,7 +398,7 @@ class ActionObject(PersistentPropertiesMixin, QObject):
 
     def __call__(self) -> None:
         args = dict(self.args)
-        if not (hasattr(self.func, "__self__") and self.func.__self__ is not None):
+        if self._takes_self:
             instance = self._instance_ref() if self._instance_ref is not None else None
             if instance is not None:
                 args["self"] = instance
