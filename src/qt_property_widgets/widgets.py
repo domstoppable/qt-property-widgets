@@ -1260,7 +1260,6 @@ class PropertyForm(PropertyWidget):
     @value.setter
     def value(self, value: object) -> None:
         self._value = value
-        self.value_changed.emit(value)
 
         self._widget_labels.clear()
         while self.form_layout.count():
@@ -1274,6 +1273,7 @@ class PropertyForm(PropertyWidget):
                 widget.deleteLater()
 
         self._setup_form()
+        self.value_changed.emit(value)
 
     def _setup_form(self) -> None:
         props = get_properties(self.value.__class__)
@@ -1320,7 +1320,7 @@ class PropertyForm(PropertyWidget):
                 prop_widget.visibility_changed.connect(
                     lambda visible, l=label: l.setVisible(visible)
                 )
-                label.setVisible(not prop_widget.isHidden())
+                prop_widget.refresh_visibility()
 
         while self.actions_container.count():
             item = self.actions_container.takeAt(0)
