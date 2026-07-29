@@ -135,6 +135,7 @@ class PropertyWidget(QWidget):
     _default_type_widgets: T.ClassVar[dict[type, type]] = {}
     value_changed = Signal(object)
     changed = Signal()
+    visibility_changed = Signal(bool)
 
     def __init__(self) -> None:
         super().__init__()
@@ -146,6 +147,7 @@ class PropertyWidget(QWidget):
         self.value_changed.connect(lambda _: self.changed.emit())
         self.source_property: property|None = None
         self.source_params: dict = {}
+        self._instance: T.Any = None
 
     def __init_subclass__(cls: type, **kwargs: T.Any) -> None:
         super().__init_subclass__(**kwargs)  # type: ignore
@@ -156,7 +158,38 @@ class PropertyWidget(QWidget):
         self.setDisabled(read_only)
 
     def on_bind(self, instance: T.Any) -> None:
-        pass
+        self._instance = instance
+
+        visibility_changed_signal = self.source_params.get("visibility_changed_signal")
+        if visibility_changed_signal:
+            signal = getattr(instance, visibility_changed_signal, None)
+            if isinstance(signal, SignalInstance):
+                signal.connect(self.refresh_visibility)
+
+        if self.source_params.get("visibility_source") is not None or visibility_changed_signal:
+            # don't trigger refresh if visibility params are not configured
+            self.refresh_visibility()
+
+    def _resolve_visibility(self) -> bool:
+        spec = self.source_params.get("visibility_source")
+        if spec is None:
+            return True
+
+        if isinstance(spec, str):
+            spec = getattr(self._instance, spec, None)
+
+        if callable(spec):
+            try:
+                return bool(spec(self._instance))
+            except TypeError:
+                return bool(spec())
+
+        return bool(spec)
+
+    def refresh_visibility(self) -> None:
+        visible = self._resolve_visibility()
+        self.setVisible(visible)
+        self.visibility_changed.emit(visible)
 
     @property
     def value(self) -> T.Any:
@@ -432,7 +465,6 @@ class DynamicComboWidget(PropertyWidget):
 
         self._options_source: T.Iterable[T.Any] | T.Callable[..., T.Iterable[T.Any]] | str | None = None
         self._options_changed_signal: T.Optional[str] | None = None
-        self._instance: T.Any = None
 
         self.widget = QComboBox()
         self.widget.installEventFilter(WHEEL_EVENT_FILTER)
@@ -443,7 +475,7 @@ class DynamicComboWidget(PropertyWidget):
         self.grid_layout.addWidget(self.widget, 0, 0)
 
     def on_bind(self, instance: T.Any) -> None:
-        self._instance = instance
+        super().on_bind(instance)
 
         if self._options_changed_signal:
             signal = getattr(instance, self._options_changed_signal, None)
@@ -1203,6 +1235,7 @@ class PropertyForm(PropertyWidget):
         super().__init__()
 
         self.property_widgets = {}
+        self._widget_labels: dict[PropertyWidget, QLabel] = {}
         self._setup_grid()
         self.value = obj
         self.property_changed.connect(lambda _p, _v: self.changed.emit())
@@ -1229,6 +1262,7 @@ class PropertyForm(PropertyWidget):
         self._value = value
         self.value_changed.emit(value)
 
+        self._widget_labels.clear()
         while self.form_layout.count():
             item = self.form_layout.takeAt(0)
             item.widget().deleteLater()
@@ -1279,9 +1313,14 @@ class PropertyForm(PropertyWidget):
                     Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
                 )
                 self.form_layout.addWidget(prop_widget, row, 1)
+                self._widget_labels[prop_widget] = label
                 prop_widget.value_changed.connect(
                     lambda v, n=property_name: self.property_changed.emit(n, v)
                 )
+                prop_widget.visibility_changed.connect(
+                    lambda visible, l=label: l.setVisible(visible)
+                )
+                label.setVisible(not prop_widget.isHidden())
 
         while self.actions_container.count():
             item = self.actions_container.takeAt(0)
