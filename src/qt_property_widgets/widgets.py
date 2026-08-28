@@ -1236,6 +1236,7 @@ class PropertyForm(PropertyWidget):
 
         self.property_widgets = {}
         self._widget_labels: dict[PropertyWidget, QLabel] = {}
+        self._action_widgets: dict[str, QWidget] = {}
         self._setup_grid()
         self.value = obj
         self.property_changed.connect(lambda _p, _v: self.changed.emit())
@@ -1360,6 +1361,7 @@ class PropertyForm(PropertyWidget):
                 icon = func.parameters["icon"]
             else:
                 icon = QIcon.fromTheme("media-playback-start")
+
             b.setIcon(icon)
 
             action_row = QWidget()
@@ -1368,7 +1370,8 @@ class PropertyForm(PropertyWidget):
             action_row.setLayout(action_layout)
             action_layout.addWidget(QLabel(action_name.replace("_", " ").title()))
             action_layout.addWidget(b)
-            self.actions_container.addWidget(action_row)
+            self._insert_action_widget(action_row)
+            self._action_widgets[action_name] = action_row
 
             def on_button_clicked(_):
                 prop_count = len(action_prop_form.property_widgets)
@@ -1390,11 +1393,21 @@ class PropertyForm(PropertyWidget):
 
             b.clicked.connect(on_button_clicked)
         else:
-            self.actions_container.addWidget(action_prop_form)
+            self._insert_action_widget(action_prop_form)
+            self._action_widgets[action_name] = action_prop_form
+
+    def _insert_action_widget(self, widget: QWidget) -> None:
+        stretch_index = self.actions_container.count() - 1
+        if stretch_index >= 0 and self.actions_container.itemAt(stretch_index).spacerItem():
+            self.actions_container.insertWidget(stretch_index, widget)
+        else:
+            self.actions_container.addWidget(widget)
 
     def remove_action(self, action_name: str) -> None:
-        # @TODO: implement remove_action
-        pass
+        widget = self._action_widgets.pop(action_name, None)
+        if widget is not None:
+            self.actions_container.removeWidget(widget)
+            widget.deleteLater()
 
     @property
     def has_widgets(self) -> bool:
