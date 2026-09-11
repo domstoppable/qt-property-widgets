@@ -14,16 +14,18 @@ validation:
 
 nav:
   - Home:
-      - Overview: index.md
-      - License: license.md
-  - API reference: modules.md
+    - Overview: index.md
+    - License: license.md
+  - API reference: 
+    - Overview: modules.md
+    - Properties: api/properties.md
+    - Actions: api/actions.md
   - Development:
-      - Contributing: contributing.md
-      - Coverage report: coverage.md
+    - Contributing: contributing.md
+    - Coverage report: coverage.md
 
 theme:
   name: material
-  custom_dir: docs/overrides
   logo: assets/logo.svg
   favicon: assets/favicon.ico
   features:
@@ -107,6 +109,7 @@ plugins:
         python:
           inventories:
             - https://docs.python.org/3/objects.inv
+            - https://doc.qt.io/qtforpython-6/objects.inv
           paths: [src]
           options:
             docstring_options:
@@ -115,6 +118,7 @@ plugins:
             filters: ["!^_"]
             heading_level: 1
             inherited_members: true
+            line_length: 88
             merge_init_into_class: true
             separate_signature: true
             show_root_heading: true

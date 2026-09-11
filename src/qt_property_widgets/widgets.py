@@ -214,8 +214,8 @@ class PropertyWidget(QWidget):
 
         if hasattr(actual_prop.fget, "parameters"):
             params = actual_prop.fget.parameters
-            if "widget" in params:
-                widget_class = actual_prop.fget.parameters["widget"]
+            if "widget" in params and params["widget"] != "auto":
+                widget_class = params["widget"]
                 if widget_class is None:
                     return None
         else:

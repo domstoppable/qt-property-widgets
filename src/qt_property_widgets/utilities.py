@@ -3,46 +3,88 @@ import json
 import typing as T
 import weakref
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, asdict
 from enum import Enum
 from importlib import resources
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, SignalInstance
 from PySide6.QtGui import QColor, QFont, QKeySequence
+from PySide6.QtWidgets import QWidget
 
 
-def property_params(**kwargs: T.Any) -> T.Callable:
-    def decorator(getter: T.Callable) -> T.Callable:
+RetType = T.TypeVar("RetType")
+
+
+@dataclass
+class property_params:
+    """Customize the appearance in the UI and the behavior of each property."""
+
+    label: str | None = None
+    """The display name of the property.
+    
+    If ``None`` (default), the display name is generated automatically from the
+    property name by replacing all underscores with spaces and applying
+    capitalization.
+    """
+
+    widget: QWidget | None | T.Literal["auto"] = "auto"
+    """The widget to use for this property.
+    
+    If ``None``, the property will not be displayed in the UI. Provide a
+    subclass of ``QWidget`` to set the desired widget 
+    explicitly. By default, the widget will be selected automatically based 
+    on the type hint of the value that the property returns.
+    """
+
+    dont_encode: bool = True
+    """Control whether the property value is stored in the JSON state."""
+
+    @property
+    def kwargs(self) -> dict[str, T.Any]:
+        return asdict(self)
+
+    def __call__(self, getter: T.Callable[..., RetType]) -> T.Callable[..., RetType]:
         if hasattr(getter, "parameters"):
             params = {
                 **getter.parameters,
-                **kwargs
+                **self.kwargs
             }
         else:
-            params = kwargs.copy()
+            params = self.kwargs.copy()
 
         getter.parameters = params  # type: ignore
 
         return getter
 
-    return decorator
 
+@dataclass
+class action_params:
+    """Customize the behavior and apperance in the UI of each action."""
 
-def action_params(**kwargs: T.Any) -> T.Callable:
-    def decorator(func: T.Callable) -> T.Callable:
-        if hasattr(func, "parameters"):
+    compact: bool = False
+    """Whether to use compact mode for displaying the action in the UI.
+
+    If ``True``, the action appears as a ``QToolButton`` in the UI, and a
+    separate window opens if arguments are required.
+    """
+
+    @property
+    def kwargs(self) -> dict[str, T.Any]:
+        return asdict(self)
+
+    def __call__(self, getter: T.Callable[..., RetType]) -> T.Callable[..., RetType]:
+        if hasattr(getter, "parameters"):
             params = {
-                **func.parameters,
-                **kwargs
+                **getter.parameters,
+                **self.kwargs
             }
         else:
-            params = kwargs.copy()
+            params = self.kwargs.copy()
 
-        func.parameters = params  # type: ignore
+        getter.parameters = params  # type: ignore
 
-        return func
-
-    return decorator
+        return getter
 
 
 def action(func: T.Optional[T.Callable] = None, **kwargs: T.Any) -> T.Any:
