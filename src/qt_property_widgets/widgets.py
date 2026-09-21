@@ -145,7 +145,7 @@ class PropertyWidget(QWidget):
 
         self._prop_setter = None
         self.value_changed.connect(lambda _: self.changed.emit())
-        self.source_property: property|None = None
+        self.source_property: property | None = None
         self.source_params: dict = {}
         self._instance: T.Any = None
 
@@ -704,7 +704,7 @@ class TextWidget(PropertyWidget):
 
         if prop.fget and hasattr(prop.fget, "parameters"):
             parameters = prop.fget.parameters
-            if "max_length" in parameters:
+            if parameters["max_length"] is not None:
                 w.widget.setMaxLength(parameters["max_length"])
 
         return w
@@ -790,22 +790,27 @@ class SpinboxWidget(PropertyWidget):
 
         if prop.fget and hasattr(prop.fget, "parameters"):
             parameters = prop.fget.parameters
-            if "min" in parameters:
+            has_min = has_max = False
+            if parameters["min"] is not None:
                 widget.min = parameters["min"]
+                has_min = True
 
-            if "max" in parameters:
+            if parameters["max"] is not None:
                 widget.max = parameters["max"]
+                has_max = True
 
-            if "step" in parameters:
+            if parameters["step"] is not None:
                 widget.step = parameters["step"]
 
-            if "decimals" in parameters:
+            if parameters["decimals"] is not None:
                 widget.decimals = parameters["decimals"]
 
-            has_range = "max" in parameters and "min" in parameters
-            widget.slider.setVisible(parameters.get("show_slider", has_range))
+            show_slider = parameters["show_slider"]
+            if show_slider is None:
+                show_slider = has_min and has_max
+            widget.slider.setVisible(show_slider)
 
-            widget.spinbox.setVisible(parameters.get("show_spinbox", True))
+            widget.spinbox.setVisible(parameters["show_spinbox"])
 
         return widget
 
@@ -1311,7 +1316,9 @@ class PropertyForm(PropertyWidget):
             if prop_widget is not None:
                 self.property_widgets[property_name] = prop_widget
                 row = self.form_layout.rowCount()
-                label_text = params.get("label", property_name.replace("_", " ").capitalize())
+                label_text = params.get("label", None)
+                if label_text is None:
+                    label_text = property_name.replace("_", " ").capitalize()
                 label = QLabel(label_text)
                 label.setContentsMargins(0, 3, 0, 0)
                 self.form_layout.addWidget(

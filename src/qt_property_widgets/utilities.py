@@ -3,22 +3,58 @@ import json
 import typing as T
 import weakref
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, fields
 from enum import Enum
 from importlib import resources
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, SignalInstance
-from PySide6.QtGui import QColor, QFont, QKeySequence
+from PySide6.QtGui import QColor, QFont, QIcon, QKeySequence
 from PySide6.QtWidgets import QWidget
 
 
 RetType = T.TypeVar("RetType")
 
 
+class SupportsBool(T.Protocol):
+    def __bool__(self) -> bool: ...
+
+
+
 @dataclass
-class property_params:
-    """Customize the appearance in the UI and the behavior of each property."""
+class _params_decorator:
+    @property
+    def kwargs(self) -> dict[str, T.Any]:
+        return {field.name: getattr(self, field.name) for field in fields(self)}
+
+    def __call__(self, getter: T.Callable[..., RetType]) -> T.Callable[..., RetType]:
+        if hasattr(getter, "parameters"):
+            params = {
+                **getter.parameters,
+                **self.kwargs
+            }
+        else:
+            params = self.kwargs.copy()
+
+        getter.parameters = params  # type: ignore
+
+        return getter
+
+
+@dataclass
+class property_params(_params_decorator):
+    """Customize the appearance in the UI and the behavior of each property.
+    
+    Example:
+        Integer property that is neither displayed in the UI nor stored persistently:
+
+        ```py
+        @property
+        @property_params(widget=None, dont_encode=True)
+        def my_property(self) -> int:
+            return 0
+        ```
+    """
 
     label: str | None = None
     """The display name of the property.
@@ -40,26 +76,64 @@ class property_params:
     dont_encode: bool = True
     """Control whether the property value is stored in the JSON state."""
 
-    @property
-    def kwargs(self) -> dict[str, T.Any]:
-        return asdict(self)
+    max_length: int | None = None
+    """For string properties, restrict the maximum allowed string length."""
 
-    def __call__(self, getter: T.Callable[..., RetType]) -> T.Callable[..., RetType]:
-        if hasattr(getter, "parameters"):
-            params = {
-                **getter.parameters,
-                **self.kwargs
-            }
-        else:
-            params = self.kwargs.copy()
+    primary: bool = False
+    """TODO: figure out better"""
 
-        getter.parameters = params  # type: ignore
+    item_params: T.Any | None = None
+    """TODO: figure out"""
 
-        return getter
+    prevent_add: bool = False
+    """For list properties, whether to display an 'Add' button."""
+
+    add_button_text: str | None = None
+    """TODO: figure out"""
+
+    min: int | None = None
+    """Minimum value for int/float properties."""
+
+    max: int | None = None
+    """Maximum value for int/float properties."""
+    
+    step: int | None = None
+    """Step value for the slider of int/float properties."""
+
+    decimals: int | None = None
+    """The amount of decimals to display and use for int/float properties."""
+
+    show_slider: bool | None = None
+    """Explicitly control whether a slider is shown for int/float properties.
+    
+    By default, the slider is shown if `min` and `max` parameters are specified.
+    """
+
+    show_spinbox: bool = True
+    """Explicitly control whether a spinbox is shown for int/float properties."""
+
+    use_subclass_selector: bool = False
+    """TODO: figure out"""
+
+    label_lookup: T.Callable | None = None
+    """TODO: figure out"""
+
+    visibility_source: str | T.Callable[..., SupportsBool] | SupportsBool | None = None
+    """Controls the visibility of the property widget.
+    
+    TODO: more details on different options.
+    """
+
+    visibility_changed_signal: SignalInstance | None = None
+    """Signal that implies that the visibility of the property has changed.
+    
+    TODO: every time the visibility is re-evaluated based on the value obtained
+    from [`visibility_source`][].
+    """
 
 
 @dataclass
-class action_params:
+class action_params(_params_decorator):
     """Customize the behavior and apperance in the UI of each action."""
 
     compact: bool = False
@@ -69,22 +143,8 @@ class action_params:
     separate window opens if arguments are required.
     """
 
-    @property
-    def kwargs(self) -> dict[str, T.Any]:
-        return asdict(self)
-
-    def __call__(self, getter: T.Callable[..., RetType]) -> T.Callable[..., RetType]:
-        if hasattr(getter, "parameters"):
-            params = {
-                **getter.parameters,
-                **self.kwargs
-            }
-        else:
-            params = self.kwargs.copy()
-
-        getter.parameters = params  # type: ignore
-
-        return getter
+    icon: QIcon | None = None
+    """The icon to use when displaying the action in compact mode."""
 
 
 def action(func: T.Optional[T.Callable] = None, **kwargs: T.Any) -> T.Any:
