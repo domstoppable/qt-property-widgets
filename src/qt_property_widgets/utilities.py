@@ -12,13 +12,11 @@ from PySide6.QtCore import QObject, Signal, SignalInstance
 from PySide6.QtGui import QColor, QFont, QIcon, QKeySequence
 from PySide6.QtWidgets import QWidget
 
-
 RetType = T.TypeVar("RetType")
 
 
 class SupportsBool(T.Protocol):
     def __bool__(self) -> bool: ...
-
 
 
 @dataclass
@@ -29,10 +27,7 @@ class _params_decorator:
 
     def __call__(self, getter: T.Callable[..., RetType]) -> T.Callable[..., RetType]:
         if hasattr(getter, "parameters"):
-            params = {
-                **getter.parameters,
-                **self.kwargs
-            }
+            params = {**getter.parameters, **self.kwargs}
         else:
             params = self.kwargs.copy()
 
@@ -44,7 +39,7 @@ class _params_decorator:
 @dataclass
 class property_params(_params_decorator):
     """Customize the appearance in the UI and the behavior of each property.
-    
+
     Example:
         Integer property that is neither displayed in the UI nor stored persistently:
 
@@ -54,11 +49,14 @@ class property_params(_params_decorator):
         def my_property(self) -> int:
             return 0
         ```
+
     """
+
+    # General parameters
 
     label: str | None = None
     """The display name of the property.
-    
+
     If ``None`` (default), the display name is generated automatically from the
     property name by replacing all underscores with spaces and applying
     capitalization.
@@ -66,24 +64,51 @@ class property_params(_params_decorator):
 
     widget: QWidget | None | T.Literal["auto"] = "auto"
     """The widget to use for this property.
-    
+
     If ``None``, the property will not be displayed in the UI. Provide a
-    subclass of ``QWidget`` to set the desired widget 
-    explicitly. By default, the widget will be selected automatically based 
+    subclass of ``QWidget`` to set the desired widget
+    explicitly. By default, the widget will be selected automatically based
     on the type hint of the value that the property returns.
     """
 
     dont_encode: bool = True
-    """Control whether the property value is stored in the JSON state."""
+    """Controls whether the property value is stored in the JSON state."""
+
+    # Parameters of string properties
 
     max_length: int | None = None
     """For string properties, restrict the maximum allowed string length."""
 
+    # Parameter of numeric properties
+
+    min: int | float | None = None
+    """For int/float properties, sets the minimum allowed value."""
+
+    max: int | float | None = None
+    """For int/float properties, sets the maximum allowed value."""
+
+    step: int | float | None = None
+    """For int/float properties, sets the step of the slider and spinbox."""
+
+    decimals: int | None = None
+    """For float properties, set the amount of decimals to display and use."""
+
+    show_slider: bool | None = None
+    """For int/float properties, explicitly show or hide the slider widget.
+
+    By default, the slider is shown if `min` and `max` parameters are specified.
+    """
+
+    show_spinbox: bool = True
+    """For int/float properties, explicitly show or hide the spinbox widget.
+
+    By default, the spinbox is always shown.
+    """
+
+    # Parameter of list properties
+
     primary: bool = False
     """TODO: figure out better"""
-
-    item_params: T.Any | None = None
-    """TODO: figure out"""
 
     prevent_add: bool = False
     """For list properties, whether to display an 'Add' button."""
@@ -91,26 +116,14 @@ class property_params(_params_decorator):
     add_button_text: str | None = None
     """TODO: figure out"""
 
-    min: int | None = None
-    """Minimum value for int/float properties."""
+    item_params: dict | None = None
+    """TODO: figure out"""
 
-    max: int | None = None
-    """Maximum value for int/float properties."""
-    
-    step: int | None = None
-    """Step value for the slider of int/float properties."""
+    label_field: str = "__name__"
+    """TODO: figure out"""
 
-    decimals: int | None = None
-    """The amount of decimals to display and use for int/float properties."""
-
-    show_slider: bool | None = None
-    """Explicitly control whether a slider is shown for int/float properties.
-    
-    By default, the slider is shown if `min` and `max` parameters are specified.
-    """
-
-    show_spinbox: bool = True
-    """Explicitly control whether a spinbox is shown for int/float properties."""
+    auto_expand: bool = False
+    """TODO: figure out"""
 
     use_subclass_selector: bool = False
     """TODO: figure out"""
@@ -118,18 +131,49 @@ class property_params(_params_decorator):
     label_lookup: T.Callable | None = None
     """TODO: figure out"""
 
+    # Parameters of path properties
+
+    directory_mode: bool = True
+    """For path properties, specifies whether directories or files are allowed.
+
+    By default, properties that return `pathlib.Path` only accept directories,
+    while properties that return `FilePath` only accept files.
+    """
+
+    dialog_title: str | None = None
+    """For path properties, specifies the custom title of the opened file dialog."""
+
+    # Dynamic visibility
+
     visibility_source: str | T.Callable[..., SupportsBool] | SupportsBool | None = None
     """Controls the visibility of the property widget.
-    
-    TODO: more details on different options.
+
+    The following options can be passed as the source of visibility status, with
+    returned value always being coerced to bool:
+
+    - Name of a field that belongs to the same class as the property and stores the
+      visibility status of the property widget
+    - A callable that returns the visibility status of the property widget
+    - A bool value that sets the visibility status of the property widget
+    - `None` (default) makes the property widget always visible
     """
 
     visibility_changed_signal: SignalInstance | None = None
     """Signal that implies that the visibility of the property has changed.
-    
-    TODO: every time the visibility is re-evaluated based on the value obtained
-    from [`visibility_source`][].
+
+    Every time the signal is emitted, the visibility of the property widget is
+    re-evaluated based on the value obtained from `visibility_source`.
     """
+
+    # Dynamic drop-downs
+
+    options_source: (
+        T.Iterable[T.Any] | T.Callable[..., T.Iterable[T.Any]] | str | None
+    ) = None
+    """Provides a list of options to be used in a dynamic drop-down widget."""
+
+    options_changed_signal: T.Optional[str] | None = None
+    """Signal that implies that the list of drop-down options has changed."""
 
 
 @dataclass
@@ -164,9 +208,7 @@ def action(func: T.Optional[T.Callable] = None, **kwargs: T.Any) -> T.Any:
             owner._actions[self.func.__name__] = self.func
 
         def __get__(
-            self,
-            instance: T.Optional[T.Any],
-            owner: T.Optional[type[T.Any]] = None
+            self, instance: T.Optional[T.Any], owner: T.Optional[type[T.Any]] = None
         ) -> T.Callable[..., T.Any]:
             def bound_func(*args: T.Any, **kwargs: T.Any) -> T.Any:
                 return self.func(instance, *args, **kwargs)
@@ -222,7 +264,9 @@ class PersistentPropertiesMixin:
                 action_object = create_action_object(action_func, self)
                 self._action_objects[action_name] = action_object
 
-                if hasattr(self, "changed") and isinstance(self.changed, SignalInstance):
+                if hasattr(self, "changed") and isinstance(
+                    self.changed, SignalInstance
+                ):
                     weak_self = weakref.ref(self)
 
                     def _on_action_changed(weak_self: T.Callable = weak_self) -> None:
@@ -321,23 +365,26 @@ class PersistentPropertiesMixin:
         elif target_class is dict:
             type_args = T.get_args(target_type)
             if len(type_args) > 0:
+
                 def key_convert(k):
                     return PersistentPropertiesMixin.type_convert(k, type_args[0])
+
             else:
+
                 def key_convert(k):
                     return k
 
             if len(type_args) > 1:
+
                 def value_convert(v):
                     return PersistentPropertiesMixin.type_convert(v, type_args[1])
+
             else:
+
                 def value_convert(v):
                     return v
 
-            value = {
-                key_convert(k): value_convert(v)
-                for k, v in value.items()
-            }
+            value = {key_convert(k): value_convert(v) for k, v in value.items()}
 
         return value
 
@@ -355,7 +402,7 @@ class PersistentPropertiesMixin:
 
         for prop_name, prop in properties.items():
             if prop.fget:
-                has_params = hasattr(prop.fget, 'parameters')
+                has_params = hasattr(prop.fget, "parameters")
                 params = prop.fget.parameters if has_params else {}
                 encode_ok = not params.get("dont_encode", False)
 
@@ -376,9 +423,7 @@ class PersistentPropertiesMixin:
 
         if hasattr(self, "_action_objects"):
             for action_name, action_object in self._action_objects.items():
-                state[action_name] = action_object.to_dict(
-                    condition=condition
-                )
+                state[action_name] = action_object.to_dict(condition=condition)
 
         return state
 
@@ -530,7 +575,7 @@ def create_action_object(func: T.Callable, instance: T.Any) -> ActionObject:
         def _setter(obj: ActionObject, v: T.Any, k: str = arg_name) -> None:
             obj.args[k] = v
 
-        _getter.__annotations__ = {'return': return_type}
+        _getter.__annotations__ = {"return": return_type}
 
         if arg_name in action_arg_params:
             _getter.parameters = action_arg_params[arg_name]
