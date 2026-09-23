@@ -713,7 +713,7 @@ class TextWidget(PropertyWidget):
 
         if prop.fget and hasattr(prop.fget, "parameters"):
             parameters = prop.fget.parameters
-            if parameters["max_length"] is not None:
+            if parameters.get("max_length", None) is not None:
                 w.widget.setMaxLength(parameters["max_length"])
 
         return w
@@ -800,26 +800,26 @@ class SpinboxWidget(PropertyWidget):
         if prop.fget and hasattr(prop.fget, "parameters"):
             parameters = prop.fget.parameters
             has_min = has_max = False
-            if parameters["min"] is not None:
+            if parameters.get("min", None) is not None:
                 widget.min = parameters["min"]
                 has_min = True
 
-            if parameters["max"] is not None:
+            if parameters.get("max", None) is not None:
                 widget.max = parameters["max"]
                 has_max = True
 
-            if parameters["step"] is not None:
+            if parameters.get("step", None) is not None:
                 widget.step = parameters["step"]
 
-            if parameters["decimals"] is not None:
+            if parameters.get("decimals", None) is not None:
                 widget.decimals = parameters["decimals"]
 
-            show_slider = parameters["show_slider"]
+            show_slider = parameters.get("show_slider", None)
             if show_slider is None:
                 show_slider = has_min and has_max
             widget.slider.setVisible(show_slider)
 
-            widget.spinbox.setVisible(parameters["show_spinbox"])
+            widget.spinbox.setVisible(parameters.get("show_spinbox", True))
 
         return widget
 
@@ -970,7 +970,7 @@ class FlagsWidget(PropertyWidget):
         self.grid_layout.setSpacing(0)
 
     def _label_lookup(self, key):
-        if "label_lookup" in self.source_params:
+        if self.source_params.get("label_lookup", None):
             return self.source_params["label_lookup"](key)
 
         return key

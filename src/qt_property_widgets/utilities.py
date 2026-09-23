@@ -128,8 +128,14 @@ class property_params(_params_decorator):
     use_subclass_selector: bool = False
     """TODO: figure out"""
 
-    label_lookup: T.Callable | None = None
-    """TODO: figure out"""
+    # Parameters of dict properties
+
+    label_lookup: T.Callable[[str], str] | None = None
+    """For `dict` properties, defines the display name of each dictionary key.
+
+    If `None` (default), each key will be shown as is. Otherwise, a callable
+    that return the display name for each key should be provided.
+    """
 
     # Parameters of path properties
 
@@ -153,8 +159,8 @@ class property_params(_params_decorator):
 
     - Name of a field that belongs to the same class as the property and stores the
       visibility status of the property widget
-    - A callable that returns the visibility status of the property widget
-    - A bool value that sets the visibility status of the property widget
+    - A bool value that sets the visibility status of the property widget, or a
+      callable that returns such a value
     - `None` (default) makes the property widget always visible
     """
 
@@ -170,10 +176,22 @@ class property_params(_params_decorator):
     options_source: (
         T.Iterable[T.Any] | T.Callable[..., T.Iterable[T.Any]] | str | None
     ) = None
-    """Provides a list of options to be used in a dynamic drop-down widget."""
+    """Provides a list of options to be used in a dynamic drop-down widget.
+
+    The following objects are accepted as the source of options:
+    - Name of a field that belongs to the same class as the property and stores the
+      options for the property widget
+    - An `Iterable` value that contains the options for the drop-down widget, or a
+      callable that returns such a value
+    - `None` (default) corresponds to the empty list of options
+    """
 
     options_changed_signal: T.Optional[str] | None = None
-    """Signal that implies that the list of drop-down options has changed."""
+    """Signal that implies that the list of drop-down options has changed.
+
+    Every time the signal is emitted, the options for the drop-down widget are
+    re-evaluated based on the value obtained from `options_source`.
+    """
 
 
 @dataclass
