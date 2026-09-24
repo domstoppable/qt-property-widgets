@@ -75,7 +75,12 @@ class property_params(_params_decorator):
     """Controls whether the property value is stored in the JSON state."""
 
     primary: bool = False
-    """TODO: figure out better"""
+    """For objects with several properties, specifies which one(s) are shown at the top.
+
+    If an object contains several properties, widgets from all properties will be
+    shown in a form. The properties with `primary=True` will be shown above those
+    that don't have this flag set.
+    """
 
     # Parameters of string properties
 
@@ -112,42 +117,42 @@ class property_params(_params_decorator):
 
     prevent_add: bool = False
     """For list properties, controls whether the button for adding elements is shown.
-    
-    By default (`False`), the button is shown. Pass `True` to hide the button. 
+
+    By default (`False`), the button is shown. Pass `True` to hide the button.
     """
 
     add_button_text: str | None = None
     """For list properties, sets custom text to the button for adding elements.
-    
+
     By default (`None`), the text is generated automatically depending on the type of
-    elements stored in the list. For simple types (`str`, `int`, `float`, `bool`), 
+    elements stored in the list. For simple types (`str`, `int`, `float`, `bool`),
     `"Add value"` is displayed. For other types, `"Add {type.__name__}"`."""
 
     use_subclass_selector: bool = False
     """For list properties, allows selecting a subclass for newly added elements.
-    
+
     By default (`False`), all added elements will have the same type `T` as specified in
     the type hint of the property: `list[T]`. If set to `True` and type `T` has several
     subclasses, a drop-down with all known subclasses of `T` will be shown, and
     the selected type will be used for the new element instead.
     """
-    
+
     item_params: dict | None = None
     """For list properties, allows passing parameters that apply to list elements.
-    
+
     In particular, `label_field` and `auto_expand` parameters should only be passed
     within this dictionary."""
 
     label_field: str = "__name__"
     """For list properties, sets the display name of list elements.
-    
+
     This parameter should be passed within the `item_params` dictionary."""
 
     auto_expand: bool = False
     """For list properties, controls whether list elements are expanded by default.
-    
-    This parameter should be passed within the `item_params` dictionary. In addition, 
-    it only applies if the list elements have a custom type that contains one or 
+
+    This parameter should be passed within the `item_params` dictionary. In addition,
+    it only applies if the list elements have a custom type that contains one or
     more properties. In that case, each element is rendered as a collapsible
     form with one or more widget, and `auto_expand=True` make the form expand by
     default (e.g., when new elements are added)."""
@@ -172,6 +177,21 @@ class property_params(_params_decorator):
 
     dialog_title: str | None = None
     """For path properties, specifies the custom title of the opened file dialog."""
+
+    # Parameters of type properties
+
+    base_class: type | None = None
+    """For type properties, sets the custom base class.
+
+    The corresponding subclass selector widget will display all subclasses of the
+    provided base class as options.
+    """
+
+    allow_none: bool = False
+    """For type properties, sets if `None` is included as one of the options."""
+
+    none_label: str | None = None
+    """For type properties, sets the display label for the `None` option."""
 
     # Dynamic visibility
 
@@ -355,7 +375,7 @@ class PersistentPropertiesMixin:
         self._setting_state = False
 
     @staticmethod
-    def type_convert(value: T.Any, target_type: type) -> T.Any:
+    def type_convert(value: T.Any, target_type: type) -> T.Any:  # noqa: C901
         target_class = T.get_origin(target_type) or target_type
         if not isinstance(value, target_class):
             if target_class is type:
@@ -407,22 +427,16 @@ class PersistentPropertiesMixin:
         elif target_class is dict:
             type_args = T.get_args(target_type)
             if len(type_args) > 0:
-
                 def key_convert(k):
                     return PersistentPropertiesMixin.type_convert(k, type_args[0])
-
             else:
-
                 def key_convert(k):
                     return k
 
             if len(type_args) > 1:
-
                 def value_convert(v):
                     return PersistentPropertiesMixin.type_convert(v, type_args[1])
-
             else:
-
                 def value_convert(v):
                     return v
 
