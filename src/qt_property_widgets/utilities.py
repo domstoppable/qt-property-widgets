@@ -270,7 +270,9 @@ def action(func: T.Optional[T.Callable] = None, **kwargs: T.Any) -> T.Any:
             owner._actions[self.func.__name__] = self.func
 
         def __get__(
-            self, instance: T.Optional[T.Any], owner: T.Optional[type[T.Any]] = None
+            self, 
+            instance: T.Optional[T.Any], 
+            owner: T.Optional[type[T.Any]] = None
         ) -> T.Callable[..., T.Any]:
             def bound_func(*args: T.Any, **kwargs: T.Any) -> T.Any:
                 return self.func(instance, *args, **kwargs)
@@ -326,9 +328,7 @@ class PersistentPropertiesMixin:
                 action_object = create_action_object(action_func, self)
                 self._action_objects[action_name] = action_object
 
-                if hasattr(self, "changed") and isinstance(
-                    self.changed, SignalInstance
-                ):
+                if hasattr(self, "changed") and isinstance(self.changed, SignalInstance):
                     weak_self = weakref.ref(self)
 
                     def _on_action_changed(weak_self: T.Callable = weak_self) -> None:
@@ -375,7 +375,7 @@ class PersistentPropertiesMixin:
         self._setting_state = False
 
     @staticmethod
-    def type_convert(value: T.Any, target_type: type) -> T.Any:  # noqa: C901
+    def type_convert(value: T.Any, target_type: type) -> T.Any:
         target_class = T.get_origin(target_type) or target_type
         if not isinstance(value, target_class):
             if target_class is type:
@@ -440,7 +440,10 @@ class PersistentPropertiesMixin:
                 def value_convert(v):
                     return v
 
-            value = {key_convert(k): value_convert(v) for k, v in value.items()}
+            value = {
+                key_convert(k): value_convert(v) 
+                for k, v in value.items()
+            }
 
         return value
 
@@ -458,7 +461,7 @@ class PersistentPropertiesMixin:
 
         for prop_name, prop in properties.items():
             if prop.fget:
-                has_params = hasattr(prop.fget, "parameters")
+                has_params = hasattr(prop.fget, 'parameters')
                 params = prop.fget.parameters if has_params else {}
                 encode_ok = not params.get("dont_encode", False)
 
@@ -479,7 +482,9 @@ class PersistentPropertiesMixin:
 
         if hasattr(self, "_action_objects"):
             for action_name, action_object in self._action_objects.items():
-                state[action_name] = action_object.to_dict(condition=condition)
+                state[action_name] = action_object.to_dict(
+                    condition=condition
+                )
 
         return state
 
@@ -631,7 +636,7 @@ def create_action_object(func: T.Callable, instance: T.Any) -> ActionObject:
         def _setter(obj: ActionObject, v: T.Any, k: str = arg_name) -> None:
             obj.args[k] = v
 
-        _getter.__annotations__ = {"return": return_type}
+        _getter.__annotations__ = {'return': return_type}
 
         if arg_name in action_arg_params:
             _getter.parameters = action_arg_params[arg_name]

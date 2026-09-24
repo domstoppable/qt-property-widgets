@@ -166,10 +166,7 @@ class PropertyWidget(QWidget):
             if isinstance(signal, SignalInstance):
                 signal.connect(self.refresh_visibility)
 
-        if (
-            self.source_params.get("visibility_source") is not None
-            or visibility_changed_signal
-        ):
+        if self.source_params.get("visibility_source") is not None or visibility_changed_signal:
             # don't trigger refresh if visibility params are not configured
             self.refresh_visibility()
 
@@ -227,10 +224,7 @@ class PropertyWidget(QWidget):
         if widget_class is None:
             hints = T.get_type_hints(actual_prop.fget)
             value_type = hints.get("return", str)
-            while (
-                isinstance(value_type, types.UnionType)
-                or T.get_origin(value_type) is T.Union
-            ):
+            while isinstance(value_type, types.UnionType) or T.get_origin(value_type) is T.Union:
                 value_type = T.get_args(value_type)[0]
 
             widget_class = PropertyWidget.get_widget_class_from_value_class(value_type)
@@ -475,9 +469,7 @@ class DynamicComboWidget(PropertyWidget):
     def __init__(self) -> None:
         super().__init__()
 
-        self._options_source: (
-            T.Iterable[T.Any] | T.Callable[..., T.Iterable[T.Any]] | str | None
-        ) = None
+        self._options_source: T.Iterable[T.Any] | T.Callable[..., T.Iterable[T.Any]] | str | None = None
         self._options_changed_signal: T.Optional[str] | None = None
 
         self.widget = QComboBox()
@@ -627,9 +619,7 @@ class KeySequenceWidget(PropertyWidget):
 
     @value.setter
     def value(self, value: QKeySequence) -> None:
-        self.record_button.setText(
-            value.toString() if not value.isEmpty() else "Click to record"
-        )
+        self.record_button.setText(value.toString() if not value.isEmpty() else "Click to record")
         self.widget.setKeySequence(value)
 
 
@@ -713,7 +703,7 @@ class TextWidget(PropertyWidget):
 
         if prop.fget and hasattr(prop.fget, "parameters"):
             parameters = prop.fget.parameters
-            if parameters.get("max_length", None) is not None:
+            if parameters.get("max_length") is not None:
                 w.widget.setMaxLength(parameters["max_length"])
 
         return w
@@ -829,18 +819,14 @@ class SpinboxWidget(PropertyWidget):
         self.slider = TickSnappingSlider(self)
         self.slider.installEventFilter(WHEEL_EVENT_FILTER)
         self.slider.setOrientation(Qt.Orientation.Horizontal)
-        self.slider.valueChanged.connect(
-            lambda: self.spinbox.setValue(self.slider.value() / 10**self.decimals)
-        )
+        self.slider.valueChanged.connect(lambda: self.spinbox.setValue(self.slider.value() / 10**self.decimals))
         self.slider.setVisible(False)
         self.grid_layout.addWidget(self.slider, 0, 0)
 
         self.spinbox = QDoubleSpinBox(self)
         self.spinbox.installEventFilter(WHEEL_EVENT_FILTER)
         self.spinbox.valueChanged.connect(lambda: self.value_changed.emit(self.value))
-        self.spinbox.valueChanged.connect(
-            lambda: self.slider.setValue(int(self.spinbox.value() * 10**self.decimals))
-        )
+        self.spinbox.valueChanged.connect(lambda: self.slider.setValue(int(self.spinbox.value() * 10**self.decimals)))
         self.grid_layout.addWidget(self.spinbox, 0, 1)
 
     def setRange(self, min_value: float, max_value: float) -> None:
@@ -1031,7 +1017,7 @@ class ValueListItemWidget(QWidget):
             self.expander = Expander(
                 title=title,
                 content_widget=self.item_widget,
-                expanded=item_widget.source_params.get("auto_expand", False),
+                expanded=item_widget.source_params.get("auto_expand", False)
             )
             self.expander.layout().setContentsMargins(0, 3, 0, 10)
             layout.addWidget(self.expander, 1)
@@ -1141,7 +1127,9 @@ class ValueListWidget(PropertyWidget):
         if item_widget and hasattr(item_widget, "value"):
             item_widget.value = obj
 
-        item_widget.source_params = self.source_params.get("item_params", {})
+        item_widget.source_params = self.source_params.get(
+            "item_params", {}
+        )
 
         list_item_wrapper: ValueListItemWidget = ValueListItemWidget(item_widget)
         list_item_wrapper.delete_button.clicked.connect(
@@ -1326,16 +1314,14 @@ class PropertyForm(PropertyWidget):
             if prop_widget is not None:
                 self.property_widgets[property_name] = prop_widget
                 row = self.form_layout.rowCount()
-                label_text = params.get("label", None)
-                if label_text is None:
-                    label_text = property_name.replace("_", " ").capitalize()
+                label_text = params.get("label") or property_name.replace("_", " ").capitalize()
                 label = QLabel(label_text)
                 label.setContentsMargins(0, 3, 0, 0)
                 self.form_layout.addWidget(
                     label,
                     row,
                     0,
-                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
                 )
                 self.form_layout.addWidget(prop_widget, row, 1)
                 self._widget_labels[prop_widget] = label
@@ -1361,7 +1347,9 @@ class PropertyForm(PropertyWidget):
         form_count = len(self.property_widgets) + self.actions_container.count()
         if form_count < 2 and not isinstance(self.value, ActionObject):
             self.form_layout.addWidget(
-                QLabel("No properties to display"), self.form_layout.rowCount(), 0
+                QLabel("No properties to display"), 
+                self.form_layout.rowCount(), 
+                0
             )
 
     def add_action(
@@ -1402,9 +1390,7 @@ class PropertyForm(PropertyWidget):
                 else:
                     handled = False
                     if prop_count == 1:
-                        arg_name, widget = next(
-                            iter(action_prop_form.property_widgets.items())
-                        )
+                        arg_name, widget = next(iter(action_prop_form.property_widgets.items()))
                         if isinstance(widget, PathWidget):
                             v = widget._on_browse_clicked()
                             if v:
@@ -1422,10 +1408,7 @@ class PropertyForm(PropertyWidget):
 
     def _insert_action_widget(self, widget: QWidget) -> None:
         stretch_index = self.actions_container.count() - 1
-        if (
-            stretch_index >= 0
-            and self.actions_container.itemAt(stretch_index).spacerItem()
-        ):
+        if stretch_index >= 0 and self.actions_container.itemAt(stretch_index).spacerItem():
             self.actions_container.insertWidget(stretch_index, widget)
         else:
             self.actions_container.addWidget(widget)
@@ -1457,16 +1440,17 @@ def is_subtype(child_type, parent_type) -> bool:
     # Peel off origins & args for parameterized generics
     c_origin = T.get_origin(child_type)
     p_origin = T.get_origin(parent_type)
-    c_args = T.get_args(child_type)
-    p_args = T.get_args(parent_type)
+    c_args   = T.get_args(child_type)
+    p_args   = T.get_args(parent_type)
 
     # If both are parameterized and same arity
     if c_origin and p_origin and len(c_args) == len(p_args):
         # Standard: same origin (or subclass) + covariant args
-        same_origin = c_origin == p_origin or (
-            inspect.isclass(c_origin)
-            and inspect.isclass(p_origin)
-            and issubclass(c_origin, p_origin)
+        same_origin = (
+            c_origin == p_origin 
+            or (inspect.isclass(c_origin)
+               and inspect.isclass(p_origin)
+               and issubclass(c_origin, p_origin))
         )
         if same_origin and all(is_subtype(ca, pa) for ca, pa in zip(c_args, p_args)):
             return True
@@ -1524,13 +1508,13 @@ class ActionForm(PropertyForm):
             self.action_label,
             row,
             0,
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
         )
         self.form_layout.addWidget(
             self.action_button,
             row,
             1,
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
         )
 
     def _on_action_button_pressed(self) -> T.Any:
