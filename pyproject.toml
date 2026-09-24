@@ -37,12 +37,10 @@ dev-dependencies = [
     "deptry>=0.20.0",
     "tox-uv>=1.11.3",
     "pytest-cov>=4.0.0",
-
     # stubs
     # "opencv-stubs",
     # "types-protobuf",
     # "pandas-stubs",
-
     # docs
     "markdown-callouts>=0.4",
     "markdown-exec>=1.8",
@@ -57,6 +55,7 @@ dev-dependencies = [
     "mkdocstrings[python]>=0.25",
     # YORE: EOL 3.10: Remove line.
     "tomli>=2.0; python_version < '3.11'",
+    "pytest-qt>=4.5.0",
 ]
 
 [build-system]
@@ -85,4 +84,3 @@ include = ["qt_property_widgets*"]
 
 [tool.setuptools.package-data]
 "qt_property_widgets" = ["assets/**"]
-

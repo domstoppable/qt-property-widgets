@@ -800,21 +800,21 @@ class SpinboxWidget(PropertyWidget):
         if prop.fget and hasattr(prop.fget, "parameters"):
             parameters = prop.fget.parameters
             has_min = has_max = False
-            if parameters.get("min", None) is not None:
+            if parameters.get("min") is not None:
                 widget.min = parameters["min"]
                 has_min = True
 
-            if parameters.get("max", None) is not None:
+            if parameters.get("max") is not None:
                 widget.max = parameters["max"]
                 has_max = True
 
-            if parameters.get("step", None) is not None:
+            if parameters.get("step") is not None:
                 widget.step = parameters["step"]
 
-            if parameters.get("decimals", None) is not None:
+            if parameters.get("decimals") is not None:
                 widget.decimals = parameters["decimals"]
 
-            show_slider = parameters.get("show_slider", None)
+            show_slider = parameters.get("show_slider")
             if show_slider is None:
                 show_slider = has_min and has_max
             widget.slider.setVisible(show_slider)
