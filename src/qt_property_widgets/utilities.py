@@ -74,6 +74,9 @@ class property_params(_params_decorator):
     dont_encode: bool = True
     """Controls whether the property value is stored in the JSON state."""
 
+    primary: bool = False
+    """TODO: figure out better"""
+
     # Parameters of string properties
 
     max_length: int | None = None
@@ -91,42 +94,63 @@ class property_params(_params_decorator):
     """For int/float properties, sets the step of the slider and spinbox."""
 
     decimals: int | None = None
-    """For float properties, set the amount of decimals to display and use."""
+    """For float properties, sets the amount of decimals to display and use."""
 
     show_slider: bool | None = None
-    """For int/float properties, explicitly show or hide the slider widget.
+    """For int/float properties, explicitly shows or hides the slider widget.
 
     By default, the slider is shown if `min` and `max` parameters are specified.
     """
 
     show_spinbox: bool = True
-    """For int/float properties, explicitly show or hide the spinbox widget.
+    """For int/float properties, explicitly shows or hides the spinbox widget.
 
     By default, the spinbox is always shown.
     """
 
     # Parameter of list properties
 
-    primary: bool = False
-    """TODO: figure out better"""
-
     prevent_add: bool = False
-    """For list properties, whether to display an 'Add' button."""
+    """For list properties, controls whether the button for adding elements is shown.
+    
+    By default (`False`), the button is shown. Pass `True` to hide the button. 
+    """
 
     add_button_text: str | None = None
-    """TODO: figure out"""
-
-    item_params: dict | None = None
-    """TODO: figure out"""
-
-    label_field: str = "__name__"
-    """TODO: figure out"""
-
-    auto_expand: bool = False
-    """TODO: figure out"""
+    """For list properties, sets custom text to the button for adding elements.
+    
+    By default (`None`), the text is generated automatically depending on the type of
+    elements stored in the list. For simple types (`str`, `int`, `float`, `bool`), 
+    `"Add value"` is displayed. For other types, `"Add {type.__name__}"`."""
 
     use_subclass_selector: bool = False
-    """TODO: figure out"""
+    """For list properties, allows selecting a subclass for newly added elements.
+    
+    By default (`False`), all added elements will have the same type `T` as specified in
+    the type hint of the property: `list[T]`. If set to `True` and type `T` has several
+    subclasses, a drop-down with all known subclasses of `T` will be shown, and
+    the selected type will be used for the new element instead.
+    """
+    
+    item_params: dict | None = None
+    """For list properties, allows passing parameters that apply to list elements.
+    
+    In particular, `label_field` and `auto_expand` parameters should only be passed
+    within this dictionary."""
+
+    label_field: str = "__name__"
+    """For list properties, sets the display name of list elements.
+    
+    This parameter should be passed within the `item_params` dictionary."""
+
+    auto_expand: bool = False
+    """For list properties, controls whether list elements are expanded by default.
+    
+    This parameter should be passed within the `item_params` dictionary. In addition, 
+    it only applies if the list elements have a custom type that contains one or 
+    more properties. In that case, each element is rendered as a collapsible
+    form with one or more widget, and `auto_expand=True` make the form expand by
+    default (e.g., when new elements are added)."""
 
     # Parameters of dict properties
 

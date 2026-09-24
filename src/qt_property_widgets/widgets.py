@@ -970,7 +970,7 @@ class FlagsWidget(PropertyWidget):
         self.grid_layout.setSpacing(0)
 
     def _label_lookup(self, key):
-        if self.source_params.get("label_lookup", None):
+        if self.source_params.get("label_lookup"):
             return self.source_params["label_lookup"](key)
 
         return key
@@ -1074,7 +1074,7 @@ class ValueListWidget(PropertyWidget):
                 value_desc = self.item_class.__name__
 
             self.add_button = QPushButton(
-                self.source_params.get("add_button_text", f"Add {value_desc}"), self
+                self.source_params.get("add_button_text") or f"Add {value_desc}", self
             )
             self.add_button.clicked.connect(self.on_add_button_clicked)
 
