@@ -75,11 +75,9 @@ class property_params(_params_decorator):
     """Controls whether the property value is stored in the JSON state."""
 
     primary: bool = False
-    """For objects with several properties, specifies which one(s) are shown at the top.
+    """Controls whether the display name of the property is shown. 
 
-    If an object contains several properties, widgets from all properties will be
-    shown in a form. The properties with `primary=True` will be shown above those
-    that don't have this flag set.
+    Set to `True` to hide the property name and show only its value in the form.
     """
 
     # Parameters of string properties
