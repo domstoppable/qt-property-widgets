@@ -398,6 +398,13 @@ class FilePathWidget(PathWidget):
         widget = FilePathWidget()
         widget.directory_mode = False
 
+        if prop.fget and hasattr(prop.fget, "parameters"):
+            parameters = prop.fget.parameters
+            if "dialog_title" in parameters:
+                widget.dialog_title = parameters["dialog_title"]
+            if "file_filter" in parameters:
+                widget.filter = parameters["file_filter"]
+
         return widget
 
     @property
