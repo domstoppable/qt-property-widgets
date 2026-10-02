@@ -71,7 +71,7 @@ class property_params(_params_decorator):
     on the type hint of the value that the property returns.
     """
 
-    dont_encode: bool = True
+    dont_encode: bool = False
     """Controls whether the property value is stored in the JSON state."""
 
     primary: bool = False
