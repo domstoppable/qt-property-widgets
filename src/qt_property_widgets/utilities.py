@@ -176,6 +176,15 @@ class property_params(_params_decorator):
     dialog_title: str | None = None
     """For path properties, specifies the custom title of the opened file dialog."""
 
+    file_filter: str | None = None
+    """For file-path properties, restricts the type of files that can be opened.
+    
+    The expected filter format is described in the 
+    [Qt documentation](https://doc.qt.io/qt-6/qfiledialog.html#file-filters). 
+    Using the filter, it is possible to allow opening, for example, only images 
+    or only files with a specific extension.
+    """
+
     # Parameters of type properties
 
     base_class: type | None = None
