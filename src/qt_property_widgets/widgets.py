@@ -401,6 +401,7 @@ class FilePathWidget(PathWidget):
             parameters = prop.fget.parameters
             if parameters.get("dialog_title") is not None:
                 widget.dialog_title = parameters["dialog_title"]
+
             if parameters.get("file_filter") is not None:
                 widget.filter = parameters["file_filter"]
 
@@ -1194,12 +1195,11 @@ class SubclassSelectorWidget(PropertyWidget):
         else:
             parameters = {}
 
-        base_class = parameters.get("base_class", T.get_args(hints["return"])[0])
-
+        base_class = parameters.get("base_class") or T.get_args(hints["return"])[0]
         w = SubclassSelectorWidget(base_class)
 
-        if parameters.get("allow_none", False):
-            label = parameters.get("none_label", "")
+        if parameters.get("allow_none"):
+            label = parameters.get("none_label") or ""
             w.widget.insertItem(0, label, None)
 
         return w
@@ -1347,8 +1347,8 @@ class PropertyForm(PropertyWidget):
         form_count = len(self.property_widgets) + self.actions_container.count()
         if form_count < 2 and not isinstance(self.value, ActionObject):
             self.form_layout.addWidget(
-                QLabel("No properties to display"), 
-                self.form_layout.rowCount(), 
+                QLabel("No properties to display"),
+                self.form_layout.rowCount(),
                 0
             )
 
@@ -1364,12 +1364,11 @@ class PropertyForm(PropertyWidget):
         action_prop_form = PropertyWidget.from_type(action_object.__class__)
         action_prop_form.setContentsMargins(10, 10, 10, 0)
         action_prop_form.value = action_object
-        if hasattr(func, "parameters") and func.parameters.get("compact", False):
+        if hasattr(func, "parameters") and func.parameters.get("compact"):
             b = QToolButton()
 
-            if "icon" in func.parameters:
-                icon = func.parameters["icon"]
-            else:
+            icon = func.parameters.get("icon")
+            if not icon:
                 icon = QIcon.fromTheme("media-playback-start")
 
             b.setIcon(icon)
@@ -1447,7 +1446,7 @@ def is_subtype(child_type, parent_type) -> bool:
     if c_origin and p_origin and len(c_args) == len(p_args):
         # Standard: same origin (or subclass) + covariant args
         same_origin = (
-            c_origin == p_origin 
+            c_origin == p_origin
             or (inspect.isclass(c_origin)
                and inspect.isclass(p_origin)
                and issubclass(c_origin, p_origin))
