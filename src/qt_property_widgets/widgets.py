@@ -145,7 +145,7 @@ class PropertyWidget(QWidget):
 
         self._prop_setter = None
         self.value_changed.connect(lambda _: self.changed.emit())
-        self.source_property: property|None = None
+        self.source_property: property | None = None
         self.source_params: dict = {}
         self._instance: T.Any = None
 
@@ -214,8 +214,8 @@ class PropertyWidget(QWidget):
 
         if hasattr(actual_prop.fget, "parameters"):
             params = actual_prop.fget.parameters
-            if "widget" in params:
-                widget_class = actual_prop.fget.parameters["widget"]
+            if "widget" in params and params["widget"] != "auto":
+                widget_class = params["widget"]
                 if widget_class is None:
                     return None
         else:
@@ -315,15 +315,14 @@ class PathWidget(PropertyWidget):
     def from_property_impl(prop: property) -> "PathWidget":
         widget = PathWidget()
 
+        widget.directory_mode = True
         if prop.fget and hasattr(prop.fget, "parameters"):
             parameters = prop.fget.parameters
             if "directory_mode" in parameters:
                 widget.directory_mode = parameters["directory_mode"]
 
-            if "dialog_title" in parameters:
+            if parameters.get("dialog_title") is not None:
                 widget.dialog_title = parameters["dialog_title"]
-
-        widget.directory_mode = True
 
         return widget
 
@@ -400,9 +399,9 @@ class FilePathWidget(PathWidget):
 
         if prop.fget and hasattr(prop.fget, "parameters"):
             parameters = prop.fget.parameters
-            if "dialog_title" in parameters:
+            if parameters.get("dialog_title") is not None:
                 widget.dialog_title = parameters["dialog_title"]
-            if "file_filter" in parameters:
+            if parameters.get("file_filter") is not None:
                 widget.filter = parameters["file_filter"]
 
         return widget
@@ -704,7 +703,7 @@ class TextWidget(PropertyWidget):
 
         if prop.fget and hasattr(prop.fget, "parameters"):
             parameters = prop.fget.parameters
-            if "max_length" in parameters:
+            if parameters.get("max_length") is not None:
                 w.widget.setMaxLength(parameters["max_length"])
 
         return w
@@ -790,20 +789,25 @@ class SpinboxWidget(PropertyWidget):
 
         if prop.fget and hasattr(prop.fget, "parameters"):
             parameters = prop.fget.parameters
-            if "min" in parameters:
+            has_min = has_max = False
+            if parameters.get("min") is not None:
                 widget.min = parameters["min"]
+                has_min = True
 
-            if "max" in parameters:
+            if parameters.get("max") is not None:
                 widget.max = parameters["max"]
+                has_max = True
 
-            if "step" in parameters:
+            if parameters.get("step") is not None:
                 widget.step = parameters["step"]
 
-            if "decimals" in parameters:
+            if parameters.get("decimals") is not None:
                 widget.decimals = parameters["decimals"]
 
-            has_range = "max" in parameters and "min" in parameters
-            widget.slider.setVisible(parameters.get("show_slider", has_range))
+            show_slider = parameters.get("show_slider")
+            if show_slider is None:
+                show_slider = has_min and has_max
+            widget.slider.setVisible(show_slider)
 
             widget.spinbox.setVisible(parameters.get("show_spinbox", True))
 
@@ -952,7 +956,7 @@ class FlagsWidget(PropertyWidget):
         self.grid_layout.setSpacing(0)
 
     def _label_lookup(self, key):
-        if "label_lookup" in self.source_params:
+        if self.source_params.get("label_lookup"):
             return self.source_params["label_lookup"](key)
 
         return key
@@ -1056,8 +1060,7 @@ class ValueListWidget(PropertyWidget):
                 value_desc = self.item_class.__name__
 
             self.add_button = QPushButton(
-                self.source_params.get("add_button_text", f"Add {value_desc}"),
-                self
+                self.source_params.get("add_button_text") or f"Add {value_desc}", self
             )
             self.add_button.clicked.connect(self.on_add_button_clicked)
 
@@ -1311,7 +1314,7 @@ class PropertyForm(PropertyWidget):
             if prop_widget is not None:
                 self.property_widgets[property_name] = prop_widget
                 row = self.form_layout.rowCount()
-                label_text = params.get("label", property_name.replace("_", " ").capitalize())
+                label_text = params.get("label") or property_name.replace("_", " ").capitalize()
                 label = QLabel(label_text)
                 label.setContentsMargins(0, 3, 0, 0)
                 self.form_layout.addWidget(
@@ -1344,8 +1347,8 @@ class PropertyForm(PropertyWidget):
         form_count = len(self.property_widgets) + self.actions_container.count()
         if form_count < 2 and not isinstance(self.value, ActionObject):
             self.form_layout.addWidget(
-                QLabel("No properties to display"),
-                self.form_layout.rowCount(),
+                QLabel("No properties to display"), 
+                self.form_layout.rowCount(), 
                 0
             )
 
@@ -1444,7 +1447,7 @@ def is_subtype(child_type, parent_type) -> bool:
     if c_origin and p_origin and len(c_args) == len(p_args):
         # Standard: same origin (or subclass) + covariant args
         same_origin = (
-            c_origin == p_origin
+            c_origin == p_origin 
             or (inspect.isclass(c_origin)
                and inspect.isclass(p_origin)
                and issubclass(c_origin, p_origin))

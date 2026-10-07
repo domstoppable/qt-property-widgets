@@ -3,46 +3,261 @@ import json
 import typing as T
 import weakref
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, fields
 from enum import Enum
 from importlib import resources
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, SignalInstance
-from PySide6.QtGui import QColor, QFont, QKeySequence
+from PySide6.QtGui import QColor, QFont, QIcon, QKeySequence
+from PySide6.QtWidgets import QWidget
+
+RetType = T.TypeVar("RetType")
 
 
-def property_params(**kwargs: T.Any) -> T.Callable:
-    def decorator(getter: T.Callable) -> T.Callable:
+class SupportsBool(T.Protocol):
+    def __bool__(self) -> bool: ...
+
+
+@dataclass
+class _params_decorator:
+    @property
+    def kwargs(self) -> dict[str, T.Any]:
+        return {field.name: getattr(self, field.name) for field in fields(self)}
+
+    def __call__(self, getter: T.Callable[..., RetType]) -> T.Callable[..., RetType]:
         if hasattr(getter, "parameters"):
-            params = {
-                **getter.parameters,
-                **kwargs
-            }
+            params = {**getter.parameters, **self.kwargs}
         else:
-            params = kwargs.copy()
+            params = self.kwargs.copy()
 
         getter.parameters = params  # type: ignore
 
         return getter
 
-    return decorator
+
+@dataclass
+class property_params(_params_decorator):
+    """Customize the appearance in the UI and the behavior of each property.
+
+    Example:
+        Integer property that is neither displayed in the UI nor stored persistently:
+
+        ```py
+        @property
+        @property_params(widget=None, dont_encode=True)
+        def my_property(self) -> int:
+            return 0
+        ```
+
+    """
+
+    # General parameters
+
+    label: str | None = None
+    """The display name of the property.
+
+    If ``None`` (default), the display name is generated automatically from the
+    property name by replacing all underscores with spaces and applying
+    capitalization.
+    """
+
+    widget: QWidget | None | T.Literal["auto"] = "auto"
+    """The widget to use for this property.
+
+    If ``None``, the property will not be displayed in the UI. Provide a
+    subclass of ``QWidget`` to set the desired widget
+    explicitly. By default, the widget will be selected automatically based
+    on the type hint of the value that the property returns.
+    """
+
+    dont_encode: bool = False
+    """Controls whether the property value is stored in the JSON state."""
+
+    primary: bool = False
+    """Controls whether the display name of the property is shown. 
+
+    Set to `True` to hide the property name and show only its value in the form.
+    """
+
+    # Parameters of string properties
+
+    max_length: int | None = None
+    """For string properties, restrict the maximum allowed string length."""
+
+    # Parameter of numeric properties
+
+    min: int | float | None = None
+    """For int/float properties, sets the minimum allowed value."""
+
+    max: int | float | None = None
+    """For int/float properties, sets the maximum allowed value."""
+
+    step: int | float | None = None
+    """For int/float properties, sets the step of the slider and spinbox."""
+
+    decimals: int | None = None
+    """For float properties, sets the amount of decimals to display and use."""
+
+    show_slider: bool | None = None
+    """For int/float properties, explicitly shows or hides the slider widget.
+
+    By default, the slider is shown if `min` and `max` parameters are specified.
+    """
+
+    show_spinbox: bool = True
+    """For int/float properties, explicitly shows or hides the spinbox widget.
+
+    By default, the spinbox is always shown.
+    """
+
+    # Parameter of list properties
+
+    prevent_add: bool = False
+    """For list properties, controls whether the button for adding elements is shown.
+
+    By default (`False`), the button is shown. Pass `True` to hide the button.
+    """
+
+    add_button_text: str | None = None
+    """For list properties, sets custom text to the button for adding elements.
+
+    By default (`None`), the text is generated automatically depending on the type of
+    elements stored in the list. For simple types (`str`, `int`, `float`, `bool`),
+    `"Add value"` is displayed. For other types, `"Add {type.__name__}"`."""
+
+    use_subclass_selector: bool = False
+    """For list properties, allows selecting a subclass for newly added elements.
+
+    By default (`False`), all added elements will have the same type `T` as specified in
+    the type hint of the property: `list[T]`. If set to `True` and type `T` has several
+    subclasses, a drop-down with all known subclasses of `T` will be shown, and
+    the selected type will be used for the new element instead.
+    """
+
+    item_params: dict | None = None
+    """For list properties, allows passing parameters that apply to list elements.
+
+    In particular, `label_field` and `auto_expand` parameters should only be passed
+    within this dictionary."""
+
+    label_field: str = "__name__"
+    """For list properties, sets the display name of list elements.
+
+    This parameter should be passed within the `item_params` dictionary."""
+
+    auto_expand: bool = False
+    """For list properties, controls whether list elements are expanded by default.
+
+    This parameter should be passed within the `item_params` dictionary. In addition,
+    it only applies if the list elements have a custom type that contains one or
+    more properties. In that case, each element is rendered as a collapsible
+    form with one or more widget, and `auto_expand=True` make the form expand by
+    default (e.g., when new elements are added)."""
+
+    # Parameters of dict properties
+
+    label_lookup: T.Callable[[str], str] | None = None
+    """For `dict` properties, defines the display name of each dictionary key.
+
+    If `None` (default), each key will be shown as is. Otherwise, a callable
+    that return the display name for each key should be provided.
+    """
+
+    # Parameters of path properties
+
+    directory_mode: bool = True
+    """For path properties, specifies whether directories or files are allowed.
+
+    By default, properties that return `pathlib.Path` only accept directories,
+    while properties that return `FilePath` only accept files.
+    """
+
+    dialog_title: str | None = None
+    """For path properties, specifies the custom title of the opened file dialog."""
+
+    file_filter: str | None = None
+    """For file-path properties, restricts the type of files that can be opened.
+    
+    The expected filter format is described in the 
+    [Qt documentation](https://doc.qt.io/qt-6/qfiledialog.html#file-filters). 
+    Using the filter, it is possible to allow opening, for example, only images 
+    or only files with a specific extension.
+    """
+
+    # Parameters of type properties
+
+    base_class: type | None = None
+    """For type properties, sets the custom base class.
+
+    The corresponding subclass selector widget will display all subclasses of the
+    provided base class as options.
+    """
+
+    allow_none: bool = False
+    """For type properties, sets if `None` is included as one of the options."""
+
+    none_label: str | None = None
+    """For type properties, sets the display label for the `None` option."""
+
+    # Dynamic visibility
+
+    visibility_source: str | T.Callable[..., SupportsBool] | SupportsBool | None = None
+    """Controls the visibility of the property widget.
+
+    The following options can be passed as the source of visibility status, with
+    returned value always being coerced to bool:
+
+    - Name of a field that belongs to the same class as the property and stores the
+      visibility status of the property widget
+    - A bool value that sets the visibility status of the property widget, or a
+      callable that returns such a value
+    - `None` (default) makes the property widget always visible
+    """
+
+    visibility_changed_signal: SignalInstance | None = None
+    """Signal that implies that the visibility of the property has changed.
+
+    Every time the signal is emitted, the visibility of the property widget is
+    re-evaluated based on the value obtained from `visibility_source`.
+    """
+
+    # Dynamic drop-downs
+
+    options_source: (
+        T.Iterable[T.Any] | T.Callable[..., T.Iterable[T.Any]] | str | None
+    ) = None
+    """Provides a list of options to be used in a dynamic drop-down widget.
+
+    The following objects are accepted as the source of options:
+    - Name of a field that belongs to the same class as the property and stores the
+      options for the property widget
+    - An `Iterable` value that contains the options for the drop-down widget, or a
+      callable that returns such a value
+    - `None` (default) corresponds to the empty list of options
+    """
+
+    options_changed_signal: T.Optional[str] | None = None
+    """Signal that implies that the list of drop-down options has changed.
+
+    Every time the signal is emitted, the options for the drop-down widget are
+    re-evaluated based on the value obtained from `options_source`.
+    """
 
 
-def action_params(**kwargs: T.Any) -> T.Callable:
-    def decorator(func: T.Callable) -> T.Callable:
-        if hasattr(func, "parameters"):
-            params = {
-                **func.parameters,
-                **kwargs
-            }
-        else:
-            params = kwargs.copy()
+@dataclass
+class action_params(_params_decorator):
+    """Customize the behavior and apperance in the UI of each action."""
 
-        func.parameters = params  # type: ignore
+    compact: bool = False
+    """Whether to use compact mode for displaying the action in the UI.
 
-        return func
+    If ``True``, the action appears as a ``QToolButton`` in the UI, and a
+    separate window opens if arguments are required.
+    """
 
-    return decorator
+    icon: QIcon | None = None
+    """The icon to use when displaying the action in compact mode."""
 
 
 def action(func: T.Optional[T.Callable] = None, **kwargs: T.Any) -> T.Any:
@@ -62,8 +277,8 @@ def action(func: T.Optional[T.Callable] = None, **kwargs: T.Any) -> T.Any:
             owner._actions[self.func.__name__] = self.func
 
         def __get__(
-            self,
-            instance: T.Optional[T.Any],
+            self, 
+            instance: T.Optional[T.Any], 
             owner: T.Optional[type[T.Any]] = None
         ) -> T.Callable[..., T.Any]:
             def bound_func(*args: T.Any, **kwargs: T.Any) -> T.Any:
@@ -233,7 +448,7 @@ class PersistentPropertiesMixin:
                     return v
 
             value = {
-                key_convert(k): value_convert(v)
+                key_convert(k): value_convert(v) 
                 for k, v in value.items()
             }
 
