@@ -246,7 +246,7 @@ class property_params(_params_decorator):
 
     # Allow passing arbitrary parameters for custom widgets
 
-    custom_params: T.Mapping[str, T.Any] | None = None
+    custom_params: dict[str, T.Any] | None = None
     """Pass a dictionary with custom parameters.
 
     Use this field to extend the parameter set for custom widgets. The provided
@@ -267,7 +267,9 @@ class property_params(_params_decorator):
     def kwargs(self) -> dict[str, T.Any]:
         # NOTE: overwriting custom params with kwargs to preserve dataclass
         # field values in case of name clash
-        result = self.custom_params.copy() if self.custom_params else {}
+        result = (
+            self.custom_params.copy() if isinstance(self.custom_params, dict) else {}
+        )
         result.update(super().kwargs)
 
         return result
