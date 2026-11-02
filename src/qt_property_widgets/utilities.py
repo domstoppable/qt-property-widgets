@@ -62,7 +62,7 @@ class property_params(_params_decorator):
     capitalization.
     """
 
-    widget: QWidget | None | T.Literal["auto"] = "auto"
+    widget: type[QWidget] | None | T.Literal["auto"] = "auto"
     """The widget to use for this property.
 
     If ``None``, the property will not be displayed in the UI. Provide a
@@ -75,7 +75,7 @@ class property_params(_params_decorator):
     """Controls whether the property value is stored in the JSON state."""
 
     primary: bool = False
-    """Controls whether the display name of the property is shown. 
+    """Controls whether the display name of the property is shown.
 
     Set to `True` to hide the property name and show only its value in the form.
     """
@@ -178,10 +178,10 @@ class property_params(_params_decorator):
 
     file_filter: str | None = None
     """For file-path properties, restricts the type of files that can be opened.
-    
-    The expected filter format is described in the 
-    [Qt documentation](https://doc.qt.io/qt-6/qfiledialog.html#file-filters). 
-    Using the filter, it is possible to allow opening, for example, only images 
+
+    The expected filter format is described in the
+    [Qt documentation](https://doc.qt.io/qt-6/qfiledialog.html#file-filters).
+    Using the filter, it is possible to allow opening, for example, only images
     or only files with a specific extension.
     """
 
@@ -277,9 +277,7 @@ def action(func: T.Optional[T.Callable] = None, **kwargs: T.Any) -> T.Any:
             owner._actions[self.func.__name__] = self.func
 
         def __get__(
-            self, 
-            instance: T.Optional[T.Any], 
-            owner: T.Optional[type[T.Any]] = None
+            self, instance: T.Optional[T.Any], owner: T.Optional[type[T.Any]] = None
         ) -> T.Callable[..., T.Any]:
             def bound_func(*args: T.Any, **kwargs: T.Any) -> T.Any:
                 return self.func(instance, *args, **kwargs)
@@ -335,7 +333,9 @@ class PersistentPropertiesMixin:
                 action_object = create_action_object(action_func, self)
                 self._action_objects[action_name] = action_object
 
-                if hasattr(self, "changed") and isinstance(self.changed, SignalInstance):
+                if hasattr(self, "changed") and isinstance(
+                    self.changed, SignalInstance
+                ):
                     weak_self = weakref.ref(self)
 
                     def _on_action_changed(weak_self: T.Callable = weak_self) -> None:
@@ -382,7 +382,7 @@ class PersistentPropertiesMixin:
         self._setting_state = False
 
     @staticmethod
-    def type_convert(value: T.Any, target_type: type) -> T.Any:
+    def type_convert(value: T.Any, target_type: type) -> T.Any:  # noqa: C901
         target_class = T.get_origin(target_type) or target_type
         if not isinstance(value, target_class):
             if target_class is type:
@@ -434,23 +434,26 @@ class PersistentPropertiesMixin:
         elif target_class is dict:
             type_args = T.get_args(target_type)
             if len(type_args) > 0:
+
                 def key_convert(k):
                     return PersistentPropertiesMixin.type_convert(k, type_args[0])
+
             else:
+
                 def key_convert(k):
                     return k
 
             if len(type_args) > 1:
+
                 def value_convert(v):
                     return PersistentPropertiesMixin.type_convert(v, type_args[1])
+
             else:
+
                 def value_convert(v):
                     return v
 
-            value = {
-                key_convert(k): value_convert(v) 
-                for k, v in value.items()
-            }
+            value = {key_convert(k): value_convert(v) for k, v in value.items()}
 
         return value
 
@@ -468,7 +471,7 @@ class PersistentPropertiesMixin:
 
         for prop_name, prop in properties.items():
             if prop.fget:
-                has_params = hasattr(prop.fget, 'parameters')
+                has_params = hasattr(prop.fget, "parameters")
                 params = prop.fget.parameters if has_params else {}
                 encode_ok = not params.get("dont_encode", False)
 
@@ -489,9 +492,7 @@ class PersistentPropertiesMixin:
 
         if hasattr(self, "_action_objects"):
             for action_name, action_object in self._action_objects.items():
-                state[action_name] = action_object.to_dict(
-                    condition=condition
-                )
+                state[action_name] = action_object.to_dict(condition=condition)
 
         return state
 
@@ -643,7 +644,7 @@ def create_action_object(func: T.Callable, instance: T.Any) -> ActionObject:
         def _setter(obj: ActionObject, v: T.Any, k: str = arg_name) -> None:
             obj.args[k] = v
 
-        _getter.__annotations__ = {'return': return_type}
+        _getter.__annotations__ = {"return": return_type}
 
         if arg_name in action_arg_params:
             _getter.parameters = action_arg_params[arg_name]
